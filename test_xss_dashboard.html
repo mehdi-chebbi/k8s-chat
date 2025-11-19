@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>XSS Vulnerability Test</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #1a1a1a;
+            color: #ffffff;
+        }
+        .container {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+        .panel {
+            background: #2d2d2d;
+            border: 1px solid #444;
+            border-radius: 8px;
+            padding: 20px;
+        }
+        .vulnerable {
+            border-color: #dc3545;
+        }
+        .secure {
+            border-color: #28a745;
+        }
+        .test-section {
+            margin: 20px 0;
+            padding: 15px;
+            background: #3d3d3d;
+            border-radius: 5px;
+        }
+        button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background: #0056b3;
+        }
+        .result {
+            margin: 10px 0;
+            padding: 10px;
+            border-radius: 5px;
+        }
+        .success {
+            background: #155724;
+            border: 1px solid #155724;
+        }
+        .error {
+            background: #721c24;
+            border: 1px solid #721c24;
+        }
+        .code {
+            background: #f8f9fa;
+            color: #e83e8c;
+            padding: 2px 4px;
+            border-radius: 3px;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+        }
+        .warning {
+            background: #ffc107;
+            color: #856404;
+            border: 1px solid #ffc107;
+        }
+    </style>
+</head>
+<body>
+    <h1>🛡️ XSS Vulnerability Test Dashboard</h1>
+    <p>This page tests if your session IDs are properly protected against XSS attacks.</p>
+    
+    <div class="container">
+        <!-- Vulnerable Simulation Panel -->
+        <div class="panel vulnerable">
+            <h2>🚨 BEFORE FIX (Vulnerable)</h2>
+            <div class="test-section">
+                <h3>Simulated XSS Attack</h3>
+                <p>If sessions were stored in localStorage (vulnerable), this would work:</p>
+                <button onclick="simulateOldXSS()">⚡ Simulate Old XSS Attack</button>
+                <div id="vulnerable-result"></div>
+                
+                <h3>localStorage Contents</h3>
+                <button onclick="checkLocalStorage()">🔍 Check localStorage</button>
+                <div id="localStorage-result"></div>
+            </div>
+        </div>
+        
+        <!-- Secure Fix Panel -->
+        <div class="panel secure">
+            <h2>✅ AFTER FIX (Secure)</h2>
+            <div class="test-section">
+                <h3>Test Real Authentication</h3>
+                <p>Test if HttpOnly cookies are working:</p>
+                <button onclick="testSecureAuth()">🔐 Test Secure Login</button>
+                <button onclick="testProtectedEndpoint()">🛡️ Test Protected Endpoint</button>
+                <div id="secure-result"></div>
+                
+                <h3>Cookie Analysis</h3>
+                <button onclick="analyzeCookies()">🍪 Analyze Cookies</button>
+                <div id="cookie-result"></div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="panel">
+        <h2>📊 Test Results Guide</h2>
+        <div class="test-section">
+            <h3>What to Look For:</h3>
+            <ul>
+                <li><strong class="error">❌ Bad:</strong> Session ID in localStorage → XSS stealable</li>
+                <li><strong class="success">✅ Good:</strong> No session ID in localStorage → XSS protected</li>
+                <li><strong class="error">❌ Bad:</strong> Session ID in JSON response → XSS stealable</li>
+                <li><strong class="success">✅ Good:</strong> HttpOnly cookie → XSS protected</li>
+                <li><strong class="success">✅ Good:</strong> SameSite cookie → CSRF protected</li>
+            </ul>
+        </div>
+    </div>
+
+    <script>
+        function simulateOldXSS() {
+            const result = document.getElementById('vulnerable-result');
+            
+            // Simulate what attacker would do with OLD vulnerable system
+            const sessionId = localStorage.getItem('sessionId');
+            const userData = localStorage.getItem('userData');
+            
+            if (sessionId) {
+                result.innerHTML = `
+                    <div class="result error">
+                        <h4>🚨 VULNERABLE!</h4>
+                        <p>Session ID found in localStorage:</p>
+                        <div class="code">${sessionId}</div>
+                        <p>Attacker could steal this!</p>
+                        <p>User data also exposed:</p>
+                        <div class="code">${userData}</div>
+                    </div>
+                `;
+            } else {
+                result.innerHTML = `
+                    <div class="result success">
+                        <h4>✅ SECURE!</h4>
+                        <p>No session ID in localStorage.</p>
+                        <p>XSS attack would fail!</p>
+                    </div>
+                `;
+            }
+        }
+        
+        function checkLocalStorage() {
+            const result = document.getElementById('localStorage-result');
+            const allStorage = {};
+            
+            for (let i = 0; i < localStorage.length; i++) {
+                const key = localStorage.key(i);
+                allStorage[key] = localStorage.getItem(key);
+            }
+            
+            if (Object.keys(allStorage).length === 0) {
+                result.innerHTML = `
+                    <div class="result success">
+                        <h4>✅ SECURE!</h4>
+                        <p>localStorage is empty.</p>
+                    </div>
+                `;
+            } else {
+                const hasSessionId = 'sessionId' in allStorage;
+                const status = hasSessionId ? 'error' : 'success';
+                const statusText = hasSessionId ? 'VULNERABLE' : 'SECURE';
+                const statusIcon = hasSessionId ? '🚨' : '✅';
+                
+                result.innerHTML = `
+                    <div class="result ${status}">
+                        <h4>${statusIcon} ${statusText}!</h4>
+                        <p>localStorage contains:</p>
+                        <div class="code">${JSON.stringify(allStorage, null, 2)}</div>
+                        ${hasSessionId ? '<p class="warning">⚠️ Session ID stealable via XSS!</p>' : '<p>✅ No session IDs exposed!</p>'}
+                    </div>
+                `;
+            }
+        }
+        
+        async function testSecureAuth() {
+            const result = document.getElementById('secure-result');
+            
+            try {
+                const response = await fetch('http://localhost:5000/auth/login', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    credentials: 'include', // Important: send cookies
+                    body: JSON.stringify({
+                        username: 'admin',
+                        password: 'admin123'
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok && data.user) {
+                    // Check if session ID is returned in JSON (BAD) or only in cookie (GOOD)
+                    const hasSessionInJson = 'session_id' in data;
+                    const status = hasSessionInJson ? 'error' : 'success';
+                    const statusText = hasSessionInJson ? 'VULNERABLE' : 'SECURE';
+                    const statusIcon = hasSessionInJson ? '🚨' : '✅';
+                    
+                    result.innerHTML = `
+                        <div class="result ${status}">
+                            <h4>${statusIcon} Login ${statusText}!</h4>
+                            <p>Response: ${JSON.stringify(data, null, 2)}</p>
+                            ${hasSessionInJson ? '<p class="warning">⚠️ Session ID exposed in JSON!</p>' : '<p>✅ Session ID only in HttpOnly cookie!</p>'}
+                        </div>
+                    `;
+                } else {
+                    result.innerHTML = `
+                        <div class="result error">
+                            <h4>❌ Login Failed!</h4>
+                            <p>${data.error || 'Unknown error'}</p>
+                        </div>
+                    `;
+                }
+            } catch (error) {
+                result.innerHTML = `
+                    <div class="result error">
+                        <h4>❌ Test Failed!</h4>
+                        <p>${error.message}</p>
+                    </div>
+                `;
+            }
+        }
+        
+        async function testProtectedEndpoint() {
+            const result = document.getElementById('secure-result');
+            
+            try {
+                const response = await fetch('http://localhost:5000/admin/users', {
+                    method: 'GET',
+                    credentials: 'include', // Send HttpOnly cookies
+                });
+                
+                if (response.ok) {
+                    result.innerHTML = `
+                        <div class="result success">
+                            <h4>✅ Cookie Authentication Working!</h4>
+                            <p>HttpOnly cookies are being sent automatically.</p>
+                            <p>Status: ${response.status}</p>
+                        </div>
+                    `;
+                } else if (response.status === 401) {
+                    result.innerHTML = `
+                        <div class="result error">
+                            <h4>❌ Authentication Failed!</h4>
+                            <p>Cookies not being sent or invalid.</p>
+                            <p>Status: ${response.status}</p>
+                        </div>
+                    `;
+                } else {
+                    result.innerHTML = `
+                        <div class="result warning">
+                            <h4>⚠️ Unexpected Response!</h4>
+                            <p>Status: ${response.status}</p>
+                        </div>
+                    `;
+                }
+            } catch (error) {
+                result.innerHTML = `
+                    <div class="result error">
+                        <h4>❌ Test Failed!</h4>
+                        <p>${error.message}</p>
+                    </div>
+                `;
+            }
+        }
+        
+        function analyzeCookies() {
+            const result = document.getElementById('cookie-result');
+            
+            // Get current cookies
+            const cookies = document.cookie;
+            
+            if (cookies) {
+                result.innerHTML = `
+                    <div class="result warning">
+                        <h4>🍪 Cookies Found</h4>
+                        <p>Document cookies (accessible via JavaScript):</p>
+                        <div class="code">${cookies}</div>
+                        <p class="warning">⚠️ These are NOT HttpOnly!</p>
+                    </div>
+                `;
+            } else {
+                result.innerHTML = `
+                    <div class="result success">
+                        <h4>✅ No Accessible Cookies!</h4>
+                        <p>Session cookies are HttpOnly (good!)</p>
+                        <p>JavaScript cannot access them.</p>
+                    </div>
+                `;
+            }
+        }
+        
+        // Auto-run localStorage check on load
+        window.addEventListener('load', () => {
+            checkLocalStorage();
+        });
+    </script>
+</body>
+</html>
