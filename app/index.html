@@ -1,0 +1,999 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>K8s Bot - Kubernetes Infrastructure Assistant</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .chat-container {
+            width: 90%;
+            max-width: 1200px;
+            height: 90vh;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+            display: flex;
+            overflow: hidden;
+        }
+
+        .sidebar {
+            width: 300px;
+            background: #f8f9fa;
+            padding: 20px;
+            border-right: 1px solid #e9ecef;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .sidebar h2 {
+            color: #495057;
+            margin-bottom: 20px;
+            font-size: 1.2rem;
+        }
+
+        .example-queries {
+            flex: 1;
+            overflow-y: auto;
+        }
+
+        .example-query {
+            background: white;
+            border: 1px solid #dee2e6;
+            border-radius: 8px;
+            padding: 12px;
+            margin-bottom: 10px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            font-size: 0.9rem;
+        }
+
+        .example-query:hover {
+            background: #e9ecef;
+            border-color: #adb5bd;
+            transform: translateY(-1px);
+        }
+
+        .example-query .category {
+            font-weight: bold;
+            color: #495057;
+            font-size: 0.8rem;
+            margin-bottom: 4px;
+        }
+
+        .main-chat {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .chat-header {
+            background: #343a40;
+            color: white;
+            padding: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .chat-header h1 {
+            font-size: 1.5rem;
+            font-weight: 600;
+        }
+
+        .header-actions {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .status-indicator {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .status-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: #28a745;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.5; }
+            100% { opacity: 1; }
+        }
+
+        .settings-btn {
+            background: rgba(255, 255, 255, 0.2);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            color: white;
+            padding: 8px 16px;
+            border-radius: 20px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .settings-btn:hover {
+            background: rgba(255, 255, 255, 0.3);
+            border-color: rgba(255, 255, 255, 0.5);
+        }
+
+        .api-key-status {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 0.8rem;
+            color: rgba(255, 255, 255, 0.8);
+        }
+
+        .api-key-indicator {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #dc3545;
+        }
+
+        .api-key-indicator.set {
+            background: #28a745;
+        }
+
+        .chat-messages {
+            flex: 1;
+            padding: 20px;
+            overflow-y: auto;
+            background: #f8f9fa;
+        }
+
+        .message {
+            margin-bottom: 20px;
+            display: flex;
+            align-items: flex-start;
+            gap: 12px;
+        }
+
+        .message.user {
+            flex-direction: row-reverse;
+        }
+
+        .message-avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            color: white;
+            flex-shrink: 0;
+        }
+
+        .message-avatar.user {
+            background: #007bff;
+        }
+
+        .message-avatar.bot {
+            background: #28a745;
+        }
+
+        .message-content {
+            max-width: 70%;
+            background: white;
+            padding: 15px;
+            border-radius: 15px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            line-height: 1.5;
+        }
+
+        .message.user .message-content {
+            background: #007bff;
+            color: white;
+        }
+
+        .message-time {
+            font-size: 0.8rem;
+            color: #6c757d;
+            margin-top: 8px;
+        }
+
+        .message.user .message-time {
+            color: rgba(255, 255, 255, 0.8);
+        }
+
+        /* Code block styling */
+        .code-block {
+            background: #f8f9fa;
+            border: 1px solid #e9ecef;
+            border-radius: 8px;
+            margin: 10px 0;
+            overflow: hidden;
+        }
+
+        .code-header {
+            background: #e9ecef;
+            padding: 8px 12px;
+            font-size: 0.8rem;
+            color: #495057;
+            font-weight: 600;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .copy-btn {
+            background: none;
+            border: none;
+            color: #007bff;
+            cursor: pointer;
+            font-size: 0.8rem;
+            padding: 2px 6px;
+            border-radius: 4px;
+            transition: background 0.2s ease;
+        }
+
+        .copy-btn:hover {
+            background: rgba(0, 123, 255, 0.1);
+        }
+
+        .code-content {
+            padding: 12px;
+            font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+            font-size: 0.9rem;
+            line-height: 1.4;
+            overflow-x: auto;
+            white-space: pre;
+        }
+
+        /* Enhanced formatting */
+        .message-content h1,
+        .message-content h2,
+        .message-content h3 {
+            margin: 10px 0 8px 0;
+            color: #495057;
+        }
+
+        .message-content h1 {
+            font-size: 1.3rem;
+        }
+
+        .message-content h2 {
+            font-size: 1.1rem;
+        }
+
+        .message-content h3 {
+            font-size: 1rem;
+        }
+
+        .message-content ul,
+        .message-content ol {
+            margin: 8px 0;
+            padding-left: 20px;
+        }
+
+        .message-content li {
+            margin: 4px 0;
+        }
+
+        .message-content strong {
+            color: #495057;
+        }
+
+        .message-content em {
+            color: #6c757d;
+        }
+
+        .chat-input {
+            padding: 20px;
+            background: white;
+            border-top: 1px solid #e9ecef;
+        }
+
+        .input-group {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+
+        .chat-input input {
+            flex: 1;
+            padding: 15px;
+            border: 2px solid #e9ecef;
+            border-radius: 25px;
+            font-size: 1rem;
+            outline: none;
+            transition: border-color 0.2s ease;
+        }
+
+        .chat-input input:focus {
+            border-color: #007bff;
+        }
+
+        .send-button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 15px 25px;
+            border-radius: 25px;
+            cursor: pointer;
+            font-size: 1rem;
+            transition: background 0.2s ease;
+        }
+
+        .send-button:hover {
+            background: #0056b3;
+        }
+
+        .send-button:disabled {
+            background: #6c757d;
+            cursor: not-allowed;
+        }
+
+        .loading {
+            display: none;
+            align-items: center;
+            gap: 10px;
+            color: #6c757d;
+            font-style: italic;
+        }
+
+        .loading-spinner {
+            width: 20px;
+            height: 20px;
+            border: 2px solid #e9ecef;
+            border-top: 2px solid #007bff;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .error-message {
+            background: #f8d7da;
+            color: #721c24;
+            padding: 10px;
+            border-radius: 8px;
+            margin: 10px 0;
+            border: 1px solid #f5c6cb;
+        }
+
+        .help-section {
+            background: #e7f3ff;
+            border: 1px solid #b3d9ff;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 20px;
+        }
+
+        .help-section h3 {
+            color: #0056b3;
+            margin-bottom: 10px;
+            font-size: 1rem;
+        }
+
+        .help-section p {
+            color: #495057;
+            font-size: 0.9rem;
+            line-height: 1.4;
+        }
+
+        /* Modal Styles */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            backdrop-filter: blur(5px);
+        }
+
+        .modal-content {
+            background-color: white;
+            margin: 10% auto;
+            padding: 0;
+            border-radius: 15px;
+            width: 90%;
+            max-width: 500px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+            animation: modalSlideIn 0.3s ease;
+        }
+
+        @keyframes modalSlideIn {
+            from {
+                opacity: 0;
+                transform: translateY(-50px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .modal-header {
+            background: #343a40;
+            color: white;
+            padding: 20px;
+            border-radius: 15px 15px 0 0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .modal-header h2 {
+            margin: 0;
+            font-size: 1.3rem;
+        }
+
+        .close {
+            color: white;
+            font-size: 28px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: opacity 0.2s ease;
+        }
+
+        .close:hover {
+            opacity: 0.7;
+        }
+
+        .modal-body {
+            padding: 30px;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #495057;
+        }
+
+        .form-group input {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e9ecef;
+            border-radius: 8px;
+            font-size: 1rem;
+            outline: none;
+            transition: border-color 0.2s ease;
+        }
+
+        .form-group input:focus {
+            border-color: #007bff;
+        }
+
+        .form-group .help-text {
+            font-size: 0.85rem;
+            color: #6c757d;
+            margin-top: 5px;
+        }
+
+        .modal-footer {
+            padding: 20px 30px;
+            border-top: 1px solid #e9ecef;
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+        }
+
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 1rem;
+            transition: all 0.2s ease;
+        }
+
+        .btn-primary {
+            background: #007bff;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #0056b3;
+        }
+
+        .btn-secondary {
+            background: #6c757d;
+            color: white;
+        }
+
+        .btn-secondary:hover {
+            background: #545b62;
+        }
+
+        .success-message {
+            background: #d4edda;
+            color: #155724;
+            padding: 12px;
+            border-radius: 8px;
+            margin-bottom: 15px;
+            border: 1px solid #c3e6cb;
+            display: none;
+        }
+
+        @media (max-width: 768px) {
+            .chat-container {
+                flex-direction: column;
+                height: 100vh;
+                width: 100%;
+                border-radius: 0;
+            }
+            
+            .sidebar {
+                width: 100%;
+                height: 200px;
+                border-right: none;
+                border-bottom: 1px solid #e9ecef;
+            }
+            
+            .message-content {
+                max-width: 85%;
+            }
+            
+            .modal-content {
+                width: 95%;
+                margin: 5% auto;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="chat-container">
+        <div class="sidebar">
+            <h2>🤖 K8s Bot Assistant</h2>
+            
+            <div class="help-section">
+                <h3>How to Use</h3>
+                <p>Ask questions about your Kubernetes cluster in natural language. The bot will analyze your infrastructure and provide insights with formatted commands and code blocks.</p>
+            </div>
+            
+            <div class="example-queries">
+                <h3 style="color: #495057; margin-bottom: 15px; font-size: 1rem;">Example Queries</h3>
+                
+                <div class="example-query" onclick="setQuery('How many namespaces do I have in my cluster?')">
+                    <div class="category">🏥 Cluster Health</div>
+                    <div>How many namespaces do I have in my cluster?</div>
+                </div>
+                
+                <div class="example-query" onclick="setQuery('Check cluster health')">
+                    <div class="category">🏥 Cluster Health</div>
+                    <div>Check cluster health</div>
+                </div>
+                
+                <div class="example-query" onclick="setQuery('What is the status of my cluster?')">
+                    <div class="category">🏥 Cluster Health</div>
+                    <div>What is the status of my cluster?</div>
+                </div>
+                
+                <div class="example-query" onclick="setQuery('What is wrong with pod my-app-pod?')">
+                    <div class="category">📦 Pod Analysis</div>
+                    <div>What is wrong with pod my-app-pod?</div>
+                </div>
+                
+                <div class="example-query" onclick="setQuery('Analyze pod nginx-deployment-abc123')">
+                    <div class="category">📦 Pod Analysis</div>
+                    <div>Analyze pod nginx-deployment-abc123</div>
+                </div>
+                
+                <div class="example-query" onclick="setQuery('Check production namespace')">
+                    <div class="category">🏷️ Namespace</div>
+                    <div>Check production namespace</div>
+                </div>
+                
+                <div class="example-query" onclick="setQuery('What is happening in the default namespace?')">
+                    <div class="category">🏷️ Namespace</div>
+                    <div>What is happening in the default namespace?</div>
+                </div>
+                
+                <div class="example-query" onclick="setQuery('Deployment my-app status')">
+                    <div class="category">🚀 Deployment</div>
+                    <div>Deployment my-app status</div>
+                </div>
+                
+                <div class="example-query" onclick="setQuery('Why is my deployment failing?')">
+                    <div class="category">🚀 Deployment</div>
+                    <div>Why is my deployment failing?</div>
+                </div>
+                
+                <div class="example-query" onclick="setQuery('Show me all services')">
+                    <div class="category">🔗 Services</div>
+                    <div>Show me all services</div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="main-chat">
+            <div class="chat-header">
+                <h1>Kubernetes Infrastructure Assistant</h1>
+                <div class="header-actions">
+                    <div class="api-key-status">
+                        <div class="api-key-indicator" id="apiKeyIndicator"></div>
+                        <span id="apiKeyText">API Key</span>
+                    </div>
+                    <div class="status-indicator">
+                        <div class="status-dot"></div>
+                        <span>Connected</span>
+                    </div>
+                    <button class="settings-btn" onclick="openSettings()">
+                        <span>⚙️</span>
+                        <span>Settings</span>
+                    </button>
+                </div>
+            </div>
+            
+            <div class="chat-messages" id="chatMessages">
+                <div class="message bot">
+                    <div class="message-avatar bot">🤖</div>
+                    <div class="message-content">
+                        <div>Hello! I'm your Kubernetes infrastructure assistant. I can help you analyze your cluster, troubleshoot issues, and provide insights about your pods, deployments, and services. I'll format commands and code in proper blocks for easy copying.</div>
+                        <div class="message-time" id="botTime"></div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="chat-input">
+                <div class="input-group">
+                    <input type="text" id="messageInput" placeholder="Ask about your Kubernetes cluster..." onkeypress="handleKeyPress(event)">
+                    <button class="send-button" id="sendButton" onclick="sendMessage()">Send</button>
+                </div>
+                <div class="loading" id="loadingIndicator">
+                    <div class="loading-spinner"></div>
+                    <span>Analyzing your Kubernetes cluster...</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Settings Modal -->
+    <div id="settingsModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>⚙️ Settings</h2>
+                <span class="close" onclick="closeSettings()">×</span>
+            </div>
+            <div class="modal-body">
+                <div class="success-message" id="successMessage">
+                    API Key saved successfully!
+                </div>
+                
+                <div class="form-group">
+                    <label for="apiKeyInput">OpenRouter API Key</label>
+                    <input type="password" id="apiKeyInput" placeholder="sk-or-v1-your-api-key-here">
+                    <div class="help-text">
+                        Get your API key from <a href="https://openrouter.ai/keys" target="_blank" style="color: #007bff;">OpenRouter</a>. 
+                        Your key is stored locally in your browser and never sent to any server except OpenRouter.
+                    </div>
+                </div>
+                
+                <div class="form-group">
+                    <label>Current Status</label>
+                    <div id="currentStatus" style="padding: 10px; background: #f8f9fa; border-radius: 8px; border: 1px solid #e9ecef;">
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            <div class="api-key-indicator" id="modalApiKeyIndicator"></div>
+                            <span id="modalApiKeyText">No API Key Set</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" onclick="closeSettings()">Cancel</button>
+                <button type="button" class="btn btn-primary" onclick="saveApiKey()">Save API Key</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // App State Management
+        const AppState = {
+            API_BASE_URL: 'http://localhost:5000',
+            sessionId: 'session_' + Date.now(),
+            apiKey: localStorage.getItem('openrouter_api_key') || '',
+            
+            init() {
+                this.setupEventListeners();
+                this.updateApiKeyStatus();
+                document.getElementById('botTime').textContent = this.getCurrentTime();
+                document.getElementById('messageInput').focus();
+            },
+            
+            setupEventListeners() {
+                // Close modal when clicking outside
+                window.onclick = (event) => {
+                    const modal = document.getElementById('settingsModal');
+                    if (event.target === modal) {
+                        this.closeSettings();
+                    }
+                };
+            },
+            
+            getCurrentTime() {
+                return new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            },
+            
+            updateApiKeyStatus() {
+                const indicators = [
+                    { main: document.getElementById('apiKeyIndicator'), text: document.getElementById('apiKeyText') },
+                    { main: document.getElementById('modalApiKeyIndicator'), text: document.getElementById('modalApiKeyText') }
+                ];
+                
+                const hasKey = this.apiKey && this.apiKey.trim() !== '';
+                
+                indicators.forEach(({ main, text }) => {
+                    if (hasKey) {
+                        main.classList.add('set');
+                        text.textContent = main === indicators[0].main ? 'API Key Set' : 'API Key Configured';
+                    } else {
+                        main.classList.remove('set');
+                        text.textContent = main === indicators[0].main ? 'API Key' : 'No API Key Set';
+                    }
+                });
+            },
+            
+            async sendMessage() {
+                const input = document.getElementById('messageInput');
+                const message = input.value.trim();
+                
+                if (!message) return;
+                
+                if (!this.apiKey || this.apiKey.trim() === '') {
+                    this.addMessage('Please set your OpenRouter API key in the settings first. Click the ⚙️ Settings button in the top right.', 'bot', true);
+                    this.openSettings();
+                    return;
+                }
+                
+                this.addMessage(message, 'user');
+                input.value = '';
+                
+                const sendButton = document.getElementById('sendButton');
+                const loadingIndicator = document.getElementById('loadingIndicator');
+                
+                sendButton.disabled = true;
+                loadingIndicator.style.display = 'flex';
+                
+                try {
+                    const response = await fetch(`${this.API_BASE_URL}/chat`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            message: message,
+                            session_id: this.sessionId,
+                            api_key: this.apiKey
+                        })
+                    });
+                    
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+                    
+                    const data = await response.json();
+                    this.addMessage(data.response, 'bot');
+                    
+                } catch (error) {
+                    console.error('Error:', error);
+                    this.addMessage('Sorry, I encountered an error while processing your request. Please make sure the backend server is running on localhost:5000 and your API key is correct.', 'bot', true);
+                } finally {
+                    sendButton.disabled = false;
+                    loadingIndicator.style.display = 'none';
+                    input.focus();
+                }
+            },
+            
+            addMessage(content, sender, isError = false) {
+                const chatMessages = document.getElementById('chatMessages');
+                const messageDiv = document.createElement('div');
+                messageDiv.className = `message ${sender}`;
+                
+                const avatar = document.createElement('div');
+                avatar.className = `message-avatar ${sender}`;
+                avatar.textContent = sender === 'user' ? '👤' : '🤖';
+                
+                const messageContent = document.createElement('div');
+                messageContent.className = 'message-content';
+                
+                if (isError) {
+                    messageContent.innerHTML = `<div class="error-message">${content}</div>`;
+                } else {
+                    messageContent.innerHTML = `<div>${this.formatMessage(content)}</div>`;
+                }
+                
+                const messageTime = document.createElement('div');
+                messageTime.className = 'message-time';
+                messageTime.textContent = this.getCurrentTime();
+                
+                messageContent.appendChild(messageTime);
+                messageDiv.appendChild(avatar);
+                messageDiv.appendChild(messageContent);
+                
+                chatMessages.appendChild(messageDiv);
+                chatMessages.scrollTop = chatMessages.scrollHeight;
+            },
+            
+            formatMessage(text) {
+                // First, escape HTML to prevent XSS
+                text = this.escapeHtml(text);
+                
+                // Format code blocks with proper language support
+                text = text.replace(/```(\w+)?\n([\s\S]*?)```/g, (match, language, code) => {
+                    const lang = language || 'bash';
+                    const trimmedCode = code.trim();
+                    return `<div class="code-block">
+                        <div class="code-header">
+                            <span>${lang}</span>
+                            <button class="copy-btn" onclick="AppState.copyCode(this)">Copy</button>
+                        </div>
+                        <div class="code-content">${trimmedCode}</div>
+                    </div>`;
+                });
+                
+                // Format inline code
+                text = text.replace(/`([^`]+)`/g, '<code style="background: #f8f9fa; padding: 2px 4px; border-radius: 3px; font-family: monospace; font-size: 0.9em;">$1</code>');
+                
+                // Format bold text
+                text = text.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+                
+                // Format italic text
+                text = text.replace(/\*(.*?)\*/g, '<em>$1</em>');
+                
+                // Format headings (only if they're at the start of a line)
+                text = text.replace(/^### (.*$)/gm, '<h3 style="margin: 15px 0 8px 0; color: #495057; font-size: 1.1rem;">$1</h3>');
+                text = text.replace(/^## (.*$)/gm, '<h2 style="margin: 15px 0 10px 0; color: #495057; font-size: 1.2rem;">$1</h2>');
+                text = text.replace(/^# (.*$)/gm, '<h1 style="margin: 15px 0 12px 0; color: #495057; font-size: 1.3rem;">$1</h1>');
+                
+                // Format lists - handle bullet points
+                text = text.replace(/^- (.*$)/gm, '<li style="margin: 4px 0;">$1</li>');
+                
+                // Wrap consecutive list items in ul tags
+                text = text.replace(/(<li[^>]*>.*<\/li>\s*)+/gs, (match) => {
+                    return '<ul style="margin: 8px 0; padding-left: 20px;">' + match + '</ul>';
+                });
+                
+                // Format line breaks - preserve paragraph structure
+                text = text.replace(/\n\n/g, '</p><p style="margin: 8px 0;">');
+                text = text.replace(/\n/g, '<br>');
+                
+                // Wrap in paragraph tags if not already wrapped
+                if (!text.startsWith('<')) {
+                    text = '<p style="margin: 8px 0;">' + text + '</p>';
+                }
+                
+                return text;
+            },
+            
+            escapeHtml(text) {
+                const div = document.createElement('div');
+                div.textContent = text;
+                return div.innerHTML;
+            },
+            
+            copyCode(button) {
+                const codeBlock = button.closest('.code-block');
+                const codeContent = codeBlock.querySelector('.code-content').textContent;
+                
+                navigator.clipboard.writeText(codeContent).then(() => {
+                    const originalText = button.textContent;
+                    button.textContent = 'Copied!';
+                    setTimeout(() => {
+                        button.textContent = originalText;
+                    }, 2000);
+                }).catch(err => {
+                    console.error('Failed to copy code:', err);
+                });
+            },
+            
+            openSettings() {
+                document.getElementById('apiKeyInput').value = this.apiKey;
+                document.getElementById('settingsModal').style.display = 'block';
+                this.updateApiKeyStatus();
+            },
+            
+            closeSettings() {
+                document.getElementById('settingsModal').style.display = 'none';
+            },
+            
+            saveApiKey() {
+                const newApiKey = document.getElementById('apiKeyInput').value.trim();
+                
+                if (newApiKey) {
+                    this.apiKey = newApiKey;
+                    localStorage.setItem('openrouter_api_key', this.apiKey);
+                    this.updateApiKeyStatus();
+                    
+                    const successMessage = document.getElementById('successMessage');
+                    successMessage.style.display = 'block';
+                    
+                    setTimeout(() => {
+                        successMessage.style.display = 'none';
+                        this.closeSettings();
+                    }, 2000);
+                }
+            },
+            
+            setQuery(query) {
+                document.getElementById('messageInput').value = query;
+                document.getElementById('messageInput').focus();
+            },
+            
+            handleKeyPress(event) {
+                if (event.key === 'Enter') {
+                    this.sendMessage();
+                }
+            },
+            
+            async checkBackendConnection() {
+                try {
+                    const response = await fetch(`${this.API_BASE_URL}/health`);
+                    if (response.ok) {
+                        console.log('Backend connection successful');
+                    } else {
+                        console.warn('Backend connection failed');
+                    }
+                } catch (error) {
+                    console.warn('Unable to connect to backend:', error);
+                }
+            }
+        };
+        
+        // Global functions for HTML event handlers
+        function sendMessage() {
+            AppState.sendMessage();
+        }
+        
+        function handleKeyPress(event) {
+            AppState.handleKeyPress(event);
+        }
+        
+        function setQuery(query) {
+            AppState.setQuery(query);
+        }
+        
+        function openSettings() {
+            AppState.openSettings();
+        }
+        
+        function closeSettings() {
+            AppState.closeSettings();
+        }
+        
+        function saveApiKey() {
+            AppState.saveApiKey();
+        }
+        
+        // Initialize app when DOM is loaded
+        document.addEventListener('DOMContentLoaded', () => {
+            AppState.init();
+            AppState.checkBackendConnection();
+        });
+    </script>
+</body>
+</html>

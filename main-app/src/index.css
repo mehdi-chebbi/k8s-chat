@@ -1,0 +1,75 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Custom K8s themed components */
+.k8s-card {
+  @apply bg-gradient-to-br from-k8s-dark to-k8s-darker border border-k8s-blue/20 rounded-lg shadow-xl backdrop-blur-sm;
+}
+
+.k8s-button-primary {
+  @apply bg-gradient-to-r from-k8s-blue to-k8s-cyan text-white px-6 py-3 rounded-lg font-semibold hover:from-k8s-blue/90 hover:to-k8s-cyan/90 transition-all duration-300 shadow-lg hover:shadow-k8s-cyan/25;
+}
+
+.k8s-button-secondary {
+  @apply bg-gradient-to-r from-k8s-gray to-k8s-dark text-white px-6 py-3 rounded-lg font-semibold hover:from-k8s-gray/90 hover:to-k8s-dark/90 transition-all duration-300 shadow-lg;
+}
+
+.k8s-input {
+  @apply bg-k8s-dark/50 border border-k8s-blue/30 rounded-lg pr-4 py-3 text-white placeholder-k8s-gray/50 focus:outline-none focus:border-k8s-cyan focus:ring-2 focus:ring-k8s-cyan/20 transition-all duration-300;
+}
+
+.k8s-input-with-icon {
+  @apply pl-11;
+}
+
+.k8s-input-with-eye {
+  @apply pr-12;
+}
+
+.k8s-icon-container {
+  @apply z-10;
+}
+
+.k8s-container {
+  @apply min-h-screen bg-gradient-to-br from-k8s-darker via-k8s-dark to-k8s-darker;
+}
+
+/* Loading animations */
+.k8s-loader {
+  @apply animate-k8s-spin w-8 h-8 border-4 border-k8s-blue border-t-transparent rounded-full;
+}
+
+/* Glass morphism effect */
+.k8s-glass {
+  @apply bg-white/5 backdrop-blur-md border border-white/10;
+}
+
+/* Kubernetes logo animation */
+.k8s-logo-animation {
+  animation: k8s-float 3s ease-in-out infinite;
+}
+
+@keyframes k8s-float {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-10px); }
+}
+
+/* Custom scrollbar for chat */
+.k8s-chat-scroll::-webkit-scrollbar {
+  width: 6px;
+}
+
+.k8s-chat-scroll::-webkit-scrollbar-track {
+  background: rgba(50, 108, 229, 0.1);
+  border-radius: 3px;
+}
+
+.k8s-chat-scroll::-webkit-scrollbar-thumb {
+  background: rgba(50, 108, 229, 0.5);
+  border-radius: 3px;
+}
+
+.k8s-chat-scroll::-webkit-scrollbar-thumb:hover {
+  background: rgba(50, 108, 229, 0.7);
+}
