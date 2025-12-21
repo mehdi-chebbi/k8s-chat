@@ -266,6 +266,26 @@ const PodBrowser = ({ user, onLogout }) => {
       return;
     }
     
+    // Prevent opening symlinks for security reasons
+    if (file.type === 'symlink') {
+      setFileBrowserModal(prev => ({ 
+        ...prev, 
+        loading: false, 
+        error: 'Cannot open symbolic links for security reasons. Symlinks may point to files outside the current directory or to non-existent targets.' 
+      }));
+      return;
+    }
+    
+    // Prevent opening character special files (device files)
+    if (file.type === 'character') {
+      setFileBrowserModal(prev => ({ 
+        ...prev, 
+        loading: false, 
+        error: 'Cannot open character special files. These are system device files (like /dev/null, /dev/pts/*) that cannot be read as regular files.' 
+      }));
+      return;
+    }
+    
     // It's a file, read its content
     setFileBrowserModal(prev => ({ ...prev, loading: true, error: '', selectedFile: file }));
     
@@ -323,7 +343,19 @@ const PodBrowser = ({ user, onLogout }) => {
     if (file.type === 'directory') {
       return <Folder className="w-4 h-4 text-blue-400" />;
     } else if (file.type === 'symlink') {
-      return <File className="w-4 h-4 text-yellow-400" />;
+      return (
+        <div className="relative">
+          <File className="w-4 h-4 text-yellow-400" />
+          <div className="absolute -top-1 -right-1 w-2 h-2 bg-yellow-400 rounded-full border border-k8s-dark"></div>
+        </div>
+      );
+    } else if (file.type === 'character') {
+      return (
+        <div className="relative">
+          <File className="w-4 h-4 text-red-400" />
+          <div className="absolute -top-1 -right-1 w-2 h-2 bg-red-400 rounded-full border border-k8s-dark"></div>
+        </div>
+      );
     } else {
       return <File className="w-4 h-4 text-gray-400" />;
     }
@@ -873,44 +905,74 @@ const PodBrowser = ({ user, onLogout }) => {
                         </span>
                       </div>
                       <span className="text-k8s-gray text-sm">
-                        {fileBrowserModal.files.length} items
+                        {fileBrowserModal.files.filter(file => file.name !== '.' && file.name !== '..').length} items
                       </span>
                     </div>
                     
                     {/* Files List */}
                     <div className="flex-1 bg-black/50 rounded-lg p-4 overflow-y-auto border border-white/10 scrollbar-thin scrollbar-thumb-gray-600 scrollbar-track-gray-800">
-                      {fileBrowserModal.files.length === 0 ? (
-                        <div className="text-center text-k8s-gray py-8">
-                          <Folder className="w-12 h-12 mx-auto mb-4 opacity-50" />
-                          <p>This directory is empty</p>
-                        </div>
-                      ) : (
-                        <div className="space-y-1">
-                          {fileBrowserModal.files.map((file, index) => (
-                            <div
-                              key={index}
-                              onClick={() => openFile(file)}
-                              className="flex items-center gap-3 p-3 rounded-lg hover:bg-white/10 cursor-pointer transition-colors"
-                            >
-                              {getFileIcon(file)}
-                              <div className="flex-1 min-w-0">
-                                <div className="text-white font-medium truncate">
-                                  {file.name}
+                      {(() => {
+                        const filteredFiles = fileBrowserModal.files.filter(file => file.name !== '.' && file.name !== '..');
+                        return filteredFiles.length === 0 ? (
+                          <div className="text-center text-k8s-gray py-8">
+                            <Folder className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                            <p>This directory is empty</p>
+                          </div>
+                        ) : (
+                          <div className="space-y-1">
+                            {filteredFiles.map((file, index) => {
+                              const isSymlink = file.type === 'symlink';
+                              const isCharacterFile = file.type === 'character';
+                              const isDisabled = isSymlink || isCharacterFile;
+                              
+                              return (
+                                <div
+                                  key={index}
+                                  onClick={() => !isDisabled && openFile(file)}
+                                  className={`flex items-center gap-3 p-3 rounded-lg transition-colors ${
+                                    isDisabled 
+                                      ? 'opacity-60 cursor-not-allowed' 
+                                      : 'hover:bg-white/10 cursor-pointer'
+                                  }`}
+                                  title={
+                                    isSymlink ? 'Symbolic links cannot be opened for security reasons' :
+                                    isCharacterFile ? 'Character special files are system device files that cannot be read as regular files' :
+                                    file.name
+                                  }
+                                >
+                                  {getFileIcon(file)}
+                                  <div className="flex-1 min-w-0">
+                                    <div className={`font-medium truncate ${
+                                      isDisabled ? 'text-k8s-gray' : 'text-white'
+                                    }`}>
+                                      {file.name}
+                                      {isSymlink && (
+                                        <span className="ml-2 text-xs bg-yellow-500/20 text-yellow-400 px-2 py-1 rounded">
+                                          Symlink
+                                        </span>
+                                      )}
+                                      {isCharacterFile && (
+                                        <span className="ml-2 text-xs bg-red-500/20 text-red-400 px-2 py-1 rounded">
+                                          Device
+                                        </span>
+                                      )}
+                                    </div>
+                                    <div className="flex items-center gap-4 text-sm text-k8s-gray">
+                                      <span>{file.permissions}</span>
+                                      <span>{file.owner}</span>
+                                      <span>{formatFileSize(file.size)}</span>
+                                      <span>{file.modified}</span>
+                                    </div>
+                                  </div>
+                                  <div className="text-k8s-gray text-sm">
+                                    {file.type}
+                                  </div>
                                 </div>
-                                <div className="flex items-center gap-4 text-sm text-k8s-gray">
-                                  <span>{file.permissions}</span>
-                                  <span>{file.owner}</span>
-                                  <span>{formatFileSize(file.size)}</span>
-                                  <span>{file.modified}</span>
-                                </div>
-                              </div>
-                              <div className="text-k8s-gray text-sm">
-                                {file.type}
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      )}
+                              );
+                            })}
+                          </div>
+                        );
+                      })()}
                     </div>
                   </div>
                 )}
