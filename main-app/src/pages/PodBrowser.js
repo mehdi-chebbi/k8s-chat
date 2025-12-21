@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { ChevronDown, ChevronRight, Search, RefreshCw, Server, Activity, AlertCircle, CheckCircle, FileText, X, Copy, Download } from 'lucide-react';
+import { ChevronDown, ChevronRight, Search, RefreshCw, Server, Activity, AlertCircle, CheckCircle, FileText, X, Copy, Download, Info, Folder, FolderOpen, File, ArrowLeft, ArrowRight } from 'lucide-react';
 import { apiService } from '../services/apiService';
 
 const PodBrowser = ({ user, onLogout }) => {
@@ -12,6 +12,23 @@ const PodBrowser = ({ user, onLogout }) => {
   
   // Logs modal state
   const [logsModal, setLogsModal] = useState({ isOpen: false, podName: '', namespace: '', logs: '', loading: false, error: '' });
+  
+  // Describe modal state
+  const [describeModal, setDescribeModal] = useState({ isOpen: false, podName: '', namespace: '', description: '', loading: false, error: '' });
+  
+  // File browser modal state
+  const [fileBrowserModal, setFileBrowserModal] = useState({ 
+    isOpen: false, 
+    podName: '', 
+    namespace: '', 
+    files: [], 
+    currentPath: '/', 
+    loading: false, 
+    error: '',
+    selectedFile: null,
+    fileContent: '',
+    viewingFile: false
+  });
 
   useEffect(() => {
     fetchPods();
@@ -99,6 +116,237 @@ const PodBrowser = ({ user, onLogout }) => {
     const a = document.createElement('a');
     a.href = url;
     a.download = `${logsModal.podName}-${logsModal.namespace}-logs.txt`;
+    document.body.appendChild(a);
+    a.click();
+    window.URL.revokeObjectURL(url);
+    document.body.removeChild(a);
+  };
+
+  const fetchPodDescription = async (namespace, podName) => {
+    setDescribeModal({ isOpen: true, podName, namespace, description: '', loading: true, error: '' });
+    
+    try {
+      const response = await apiService.describePod(namespace, podName);
+      
+      if (response.success) {
+        setDescribeModal({ 
+          isOpen: true, 
+          podName: response.podName, 
+          namespace: response.namespace, 
+          description: response.description, 
+          loading: false, 
+          error: '' 
+        });
+      } else {
+        setDescribeModal({ 
+          isOpen: true, 
+          podName, 
+          namespace, 
+          description: '', 
+          loading: false, 
+          error: response.error || 'Failed to fetch pod description' 
+        });
+      }
+      
+    } catch (error) {
+      console.error('Failed to fetch pod description:', error);
+      setDescribeModal({ 
+        isOpen: true, 
+        podName, 
+        namespace, 
+        description: '', 
+        loading: false, 
+        error: 'Failed to fetch pod description. Please try again.' 
+      });
+    }
+  };
+
+  const closeDescribeModal = () => {
+    setDescribeModal({ isOpen: false, podName: '', namespace: '', description: '', loading: false, error: '' });
+  };
+
+  const copyDescriptionToClipboard = () => {
+    navigator.clipboard.writeText(describeModal.description);
+    // You could add a toast notification here
+  };
+
+  const downloadDescription = () => {
+    const blob = new Blob([describeModal.description], { type: 'text/plain' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${describeModal.podName}-${describeModal.namespace}-describe.txt`;
+    document.body.appendChild(a);
+    a.click();
+    window.URL.revokeObjectURL(url);
+    document.body.removeChild(a);
+  };
+
+  const openFileBrowser = async (namespace, podName) => {
+    setFileBrowserModal({ 
+      isOpen: true, 
+      podName, 
+      namespace, 
+      files: [], 
+      currentPath: '/', 
+      loading: true, 
+      error: '',
+      selectedFile: null,
+      fileContent: '',
+      viewingFile: false
+    });
+    
+    try {
+      const response = await apiService.browsePodFiles(namespace, podName, '/');
+      
+      if (response.success) {
+        setFileBrowserModal(prev => ({ 
+          ...prev, 
+          files: response.files, 
+          currentPath: response.currentPath, 
+          loading: false, 
+          error: '' 
+        }));
+      } else {
+        setFileBrowserModal(prev => ({ 
+          ...prev, 
+          loading: false, 
+          error: response.error || 'Failed to browse pod files' 
+        }));
+      }
+      
+    } catch (error) {
+      console.error('Failed to browse pod files:', error);
+      setFileBrowserModal(prev => ({ 
+        ...prev, 
+        loading: false, 
+        error: 'Failed to browse pod files. Please try again.' 
+      }));
+    }
+  };
+
+  const navigateToDirectory = async (path) => {
+    setFileBrowserModal(prev => ({ ...prev, loading: true, error: '' }));
+    
+    try {
+      const response = await apiService.browsePodFiles(fileBrowserModal.namespace, fileBrowserModal.podName, path);
+      
+      if (response.success) {
+        setFileBrowserModal(prev => ({ 
+          ...prev, 
+          files: response.files, 
+          currentPath: response.currentPath, 
+          loading: false, 
+          error: '',
+          viewingFile: false,
+          selectedFile: null,
+          fileContent: ''
+        }));
+      } else {
+        setFileBrowserModal(prev => ({ 
+          ...prev, 
+          loading: false, 
+          error: response.error || 'Failed to navigate to directory' 
+        }));
+      }
+      
+    } catch (error) {
+      console.error('Failed to navigate:', error);
+      setFileBrowserModal(prev => ({ 
+        ...prev, 
+        loading: false, 
+        error: 'Failed to navigate to directory. Please try again.' 
+      }));
+    }
+  };
+
+  const openFile = async (file) => {
+    if (file.type === 'directory') {
+      navigateToDirectory(`${fileBrowserModal.currentPath}/${file.name}`.replace('//', '/'));
+      return;
+    }
+    
+    // It's a file, read its content
+    setFileBrowserModal(prev => ({ ...prev, loading: true, error: '', selectedFile: file }));
+    
+    try {
+      const filePath = `${fileBrowserModal.currentPath}/${file.name}`.replace('//', '/');
+      const response = await apiService.readPodFile(fileBrowserModal.namespace, fileBrowserModal.podName, filePath);
+      
+      if (response.success) {
+        setFileBrowserModal(prev => ({ 
+          ...prev, 
+          fileContent: response.content, 
+          loading: false, 
+          error: '',
+          viewingFile: true
+        }));
+      } else {
+        setFileBrowserModal(prev => ({ 
+          ...prev, 
+          loading: false, 
+          error: response.error || 'Failed to read file' 
+        }));
+      }
+      
+    } catch (error) {
+      console.error('Failed to read file:', error);
+      setFileBrowserModal(prev => ({ 
+        ...prev, 
+        loading: false, 
+        error: 'Failed to read file. Please try again.' 
+      }));
+    }
+  };
+
+  const closeFileBrowser = () => {
+    setFileBrowserModal({ 
+      isOpen: false, 
+      podName: '', 
+      namespace: '', 
+      files: [], 
+      currentPath: '/', 
+      loading: false, 
+      error: '',
+      selectedFile: null,
+      fileContent: '',
+      viewingFile: false
+    });
+  };
+
+  const navigateUp = () => {
+    const parentPath = fileBrowserModal.currentPath.split('/').slice(0, -1).join('/') || '/';
+    navigateToDirectory(parentPath);
+  };
+
+  const getFileIcon = (file) => {
+    if (file.type === 'directory') {
+      return <Folder className="w-4 h-4 text-blue-400" />;
+    } else if (file.type === 'symlink') {
+      return <File className="w-4 h-4 text-yellow-400" />;
+    } else {
+      return <File className="w-4 h-4 text-gray-400" />;
+    }
+  };
+
+  const formatFileSize = (size) => {
+    if (size === '0' || !size) return '-';
+    const num = parseInt(size);
+    if (num < 1024) return `${num} B`;
+    if (num < 1024 * 1024) return `${(num / 1024).toFixed(1)} KB`;
+    return `${(num / (1024 * 1024)).toFixed(1)} MB`;
+  };
+
+  const copyFileContent = () => {
+    navigator.clipboard.writeText(fileBrowserModal.fileContent);
+  };
+
+  const downloadFileContent = () => {
+    const blob = new Blob([fileBrowserModal.fileContent], { type: 'text/plain' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${fileBrowserModal.selectedFile?.name || 'file'}-content.txt`;
     document.body.appendChild(a);
     a.click();
     window.URL.revokeObjectURL(url);
@@ -322,6 +570,28 @@ const PodBrowser = ({ user, onLogout }) => {
                                 <FileText className="w-4 h-4" />
                                 Logs
                               </button>
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  fetchPodDescription(namespace.name, pod.name);
+                                }}
+                                className="k8s-button-secondary flex items-center gap-2 p-2"
+                                title="Describe pod"
+                              >
+                                <Info className="w-4 h-4" />
+                                Describe
+                              </button>
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  openFileBrowser(namespace.name, pod.name);
+                                }}
+                                className="k8s-button-secondary flex items-center gap-2 p-2"
+                                title="Browse pod files"
+                              >
+                                <Folder className="w-4 h-4" />
+                                Browse
+                              </button>
                             </div>
                           </div>
                         ))}
@@ -407,6 +677,240 @@ const PodBrowser = ({ user, onLogout }) => {
                     </div>
                     <div className="flex-1 bg-black/50 rounded-lg p-4 overflow-y-auto font-mono text-sm text-gray-300 border border-white/10 scrollbar-thin scrollbar-thumb-gray-600 scrollbar-track-gray-800">
                       <pre className="whitespace-pre-wrap">{logsModal.logs || 'No logs available'}</pre>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+        
+        {/* Describe Modal */}
+        {describeModal.isOpen && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+            <div className="k8s-card max-w-6xl w-full h-[85vh] max-h-[85vh] flex flex-col">
+              {/* Modal Header */}
+              <div className="flex items-center justify-between p-6 border-b border-white/10">
+                <div>
+                  <h2 className="text-xl font-bold text-white flex items-center gap-2">
+                    <Info className="w-5 h-5 text-k8s-blue" />
+                    Pod Description
+                  </h2>
+                  <p className="text-k8s-gray text-sm mt-1">
+                    {describeModal.podName} in namespace: {describeModal.namespace}
+                  </p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={copyDescriptionToClipboard}
+                    disabled={!describeModal.description || describeModal.loading}
+                    className="k8s-button-secondary flex items-center gap-2"
+                    title="Copy description to clipboard"
+                  >
+                    <Copy className="w-4 h-4" />
+                    Copy
+                  </button>
+                  <button
+                    onClick={downloadDescription}
+                    disabled={!describeModal.description || describeModal.loading}
+                    className="k8s-button-secondary flex items-center gap-2"
+                    title="Download description"
+                  >
+                    <Download className="w-4 h-4" />
+                    Download
+                  </button>
+                  <button
+                    onClick={closeDescribeModal}
+                    className="k8s-button-secondary p-2"
+                    title="Close description"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+              
+              {/* Modal Content */}
+              <div className="flex-1 p-6 overflow-hidden min-h-0">
+                {describeModal.loading ? (
+                  <div className="flex items-center justify-center h-full">
+                    <RefreshCw className="w-6 h-6 text-k8s-blue animate-spin mr-3" />
+                    <span className="text-k8s-gray">Loading pod description...</span>
+                  </div>
+                ) : describeModal.error ? (
+                  <div className="flex items-center justify-center h-full">
+                    <div className="text-center">
+                      <AlertCircle className="w-12 h-12 text-red-400 mx-auto mb-4" />
+                      <p className="text-red-400 mb-4">{describeModal.error}</p>
+                      <button onClick={closeDescribeModal} className="k8s-button-primary">
+                        Close
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="h-full flex flex-col min-h-0">
+                    <div className="flex items-center justify-between mb-4 flex-shrink-0">
+                      <span className="text-k8s-gray text-sm">
+                        Detailed pod information from kubectl describe
+                      </span>
+                      <span className="text-k8s-gray text-sm">
+                        {describeModal.timestamp && new Date(describeModal.timestamp).toLocaleString()}
+                      </span>
+                    </div>
+                    <div className="flex-1 bg-black/50 rounded-lg p-4 overflow-y-auto font-mono text-sm text-gray-300 border border-white/10 scrollbar-thin scrollbar-thumb-gray-600 scrollbar-track-gray-800">
+                      <pre className="whitespace-pre-wrap">{describeModal.description || 'No description available'}</pre>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+        
+        {/* File Browser Modal */}
+        {fileBrowserModal.isOpen && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+            <div className="k8s-card max-w-6xl w-full h-[85vh] max-h-[85vh] flex flex-col">
+              {/* Modal Header */}
+              <div className="flex items-center justify-between p-6 border-b border-white/10">
+                <div>
+                  <h2 className="text-xl font-bold text-white flex items-center gap-2">
+                    <Folder className="w-5 h-5 text-k8s-blue" />
+                    File Browser
+                  </h2>
+                  <p className="text-k8s-gray text-sm mt-1">
+                    {fileBrowserModal.podName} in namespace: {fileBrowserModal.namespace}
+                  </p>
+                </div>
+                <div className="flex items-center gap-2">
+                  {fileBrowserModal.viewingFile && (
+                    <>
+                      <button
+                        onClick={copyFileContent}
+                        disabled={!fileBrowserModal.fileContent}
+                        className="k8s-button-secondary flex items-center gap-2"
+                        title="Copy file content"
+                      >
+                        <Copy className="w-4 h-4" />
+                        Copy
+                      </button>
+                      <button
+                        onClick={downloadFileContent}
+                        disabled={!fileBrowserModal.fileContent}
+                        className="k8s-button-secondary flex items-center gap-2"
+                        title="Download file content"
+                      >
+                        <Download className="w-4 h-4" />
+                        Download
+                      </button>
+                    </>
+                  )}
+                  <button
+                    onClick={fileBrowserModal.viewingFile ? () => navigateToDirectory(fileBrowserModal.currentPath) : closeFileBrowser}
+                    className="k8s-button-secondary p-2"
+                    title={fileBrowserModal.viewingFile ? "Back to files" : "Close file browser"}
+                  >
+                    {fileBrowserModal.viewingFile ? <ArrowLeft className="w-4 h-4" /> : <X className="w-4 h-4" />}
+                  </button>
+                </div>
+              </div>
+              
+              {/* Modal Content */}
+              <div className="flex-1 p-6 overflow-hidden min-h-0">
+                {fileBrowserModal.loading ? (
+                  <div className="flex items-center justify-center h-full">
+                    <RefreshCw className="w-6 h-6 text-k8s-blue animate-spin mr-3" />
+                    <span className="text-k8s-gray">
+                      {fileBrowserModal.viewingFile ? 'Reading file...' : 'Loading files...'}
+                    </span>
+                  </div>
+                ) : fileBrowserModal.error ? (
+                  <div className="flex items-center justify-center h-full">
+                    <div className="text-center">
+                      <AlertCircle className="w-12 h-12 text-red-400 mx-auto mb-4" />
+                      <p className="text-red-400 mb-4">{fileBrowserModal.error}</p>
+                      <button onClick={closeFileBrowser} className="k8s-button-primary">
+                        Close
+                      </button>
+                    </div>
+                  </div>
+                ) : fileBrowserModal.viewingFile ? (
+                  /* File Content View */
+                  <div className="h-full flex flex-col min-h-0">
+                    <div className="flex items-center justify-between mb-4 flex-shrink-0">
+                      <div className="flex items-center gap-4">
+                        <span className="text-k8s-gray text-sm">
+                          Viewing: {fileBrowserModal.selectedFile?.name}
+                        </span>
+                        <span className="text-k8s-gray text-sm">
+                          Path: {fileBrowserModal.currentPath}
+                        </span>
+                      </div>
+                      <span className="text-k8s-gray text-sm">
+                        {fileBrowserModal.selectedFile?.size && `Size: ${formatFileSize(fileBrowserModal.selectedFile.size)}`}
+                      </span>
+                    </div>
+                    <div className="flex-1 bg-black/50 rounded-lg p-4 overflow-y-auto font-mono text-sm text-gray-300 border border-white/10 scrollbar-thin scrollbar-thumb-gray-600 scrollbar-track-gray-800">
+                      <pre className="whitespace-pre-wrap">{fileBrowserModal.fileContent || 'No content available'}</pre>
+                    </div>
+                  </div>
+                ) : (
+                  /* File Browser View */
+                  <div className="h-full flex flex-col min-h-0">
+                    {/* Navigation Bar */}
+                    <div className="flex items-center justify-between mb-4 flex-shrink-0">
+                      <div className="flex items-center gap-4">
+                        <button
+                          onClick={navigateUp}
+                          disabled={fileBrowserModal.currentPath === '/'}
+                          className="k8s-button-secondary flex items-center gap-2"
+                          title="Go up one directory"
+                        >
+                          <ArrowLeft className="w-4 h-4" />
+                          Up
+                        </button>
+                        <span className="text-k8s-gray text-sm">
+                          Current: {fileBrowserModal.currentPath}
+                        </span>
+                      </div>
+                      <span className="text-k8s-gray text-sm">
+                        {fileBrowserModal.files.length} items
+                      </span>
+                    </div>
+                    
+                    {/* Files List */}
+                    <div className="flex-1 bg-black/50 rounded-lg p-4 overflow-y-auto border border-white/10 scrollbar-thin scrollbar-thumb-gray-600 scrollbar-track-gray-800">
+                      {fileBrowserModal.files.length === 0 ? (
+                        <div className="text-center text-k8s-gray py-8">
+                          <Folder className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                          <p>This directory is empty</p>
+                        </div>
+                      ) : (
+                        <div className="space-y-1">
+                          {fileBrowserModal.files.map((file, index) => (
+                            <div
+                              key={index}
+                              onClick={() => openFile(file)}
+                              className="flex items-center gap-3 p-3 rounded-lg hover:bg-white/10 cursor-pointer transition-colors"
+                            >
+                              {getFileIcon(file)}
+                              <div className="flex-1 min-w-0">
+                                <div className="text-white font-medium truncate">
+                                  {file.name}
+                                </div>
+                                <div className="flex items-center gap-4 text-sm text-k8s-gray">
+                                  <span>{file.permissions}</span>
+                                  <span>{file.owner}</span>
+                                  <span>{formatFileSize(file.size)}</span>
+                                  <span>{file.modified}</span>
+                                </div>
+                              </div>
+                              <div className="text-k8s-gray text-sm">
+                                {file.type}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
                     </div>
                   </div>
                 )}

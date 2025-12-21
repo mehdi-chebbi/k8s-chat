@@ -915,6 +915,224 @@ def get_pod_logs(namespace, pod_name):
             'logs': ''
         }), 500
 
+@app.route('/api/pods/<namespace>/<pod_name>/describe', methods=['GET'])
+@require_user_auth
+def describe_pod(namespace, pod_name):
+    """Get detailed description of a specific pod"""
+    try:
+        # Get active kubeconfig and create appropriate K8sClient
+        active_kubeconfig = app.db.get_active_kubeconfig()
+        if active_kubeconfig:
+            k8s_client_to_use = K8sClient(kubeconfig_path=active_kubeconfig['path'])
+            logger.info(f"Using active kubeconfig: {active_kubeconfig['name']} at {active_kubeconfig['path']}")
+        else:
+            k8s_client_to_use = app.k8s_client  # Fallback to default client
+            logger.warning("No active kubeconfig found, using default client")
+        
+        # Get pod description
+        result = k8s_client_to_use.describe_pod(pod_name, namespace)
+        
+        if result['success']:
+            # Log activity
+            app.db.log_activity(
+                user_id=request.current_user['id'],
+                action_type='describe_pod',
+                command=f"kubectl describe pod {pod_name} -n {namespace}",
+                success=True
+            )
+            
+            return jsonify({
+                'success': True,
+                'description': result['stdout'],
+                'pod_name': pod_name,
+                'namespace': namespace,
+                'timestamp': result['timestamp']
+            })
+        else:
+            # Log failed activity
+            app.db.log_activity(
+                user_id=request.current_user['id'],
+                action_type='describe_pod',
+                command=f"kubectl describe pod {pod_name} -n {namespace}",
+                success=False,
+                error_message=result.get('error', 'Unknown error')
+            )
+            
+            return jsonify({
+                'success': False,
+                'error': result.get('error', 'Failed to retrieve pod description'),
+                'description': ''
+            }), 500
+        
+    except Exception as e:
+        logger.error(f"Error describing pod: {str(e)}")
+        
+        # Log failed activity
+        app.db.log_activity(
+            user_id=request.current_user['id'],
+            action_type='describe_pod',
+            command=f"kubectl describe pod {pod_name} -n {namespace}",
+            success=False,
+            error_message=str(e)
+        )
+        
+        return jsonify({
+            'success': False,
+            'error': 'Failed to retrieve pod description',
+            'description': ''
+        }), 500
+
+@app.route('/api/pods/<namespace>/<pod_name>/browse', methods=['GET'])
+@require_user_auth
+def browse_pod_files(namespace, pod_name):
+    """Browse files inside a specific pod (READ ONLY)"""
+    try:
+        # Get path from query parameter
+        path = request.args.get('path', '/')
+        
+        # Get active kubeconfig and create appropriate K8sClient
+        active_kubeconfig = app.db.get_active_kubeconfig()
+        if active_kubeconfig:
+            k8s_client_to_use = K8sClient(kubeconfig_path=active_kubeconfig['path'])
+            logger.info(f"Using active kubeconfig: {active_kubeconfig['name']} at {active_kubeconfig['path']}")
+        else:
+            k8s_client_to_use = app.k8s_client  # Fallback to default client
+            logger.warning("No active kubeconfig found, using default client")
+        
+        logger.info(f"Browsing files in pod {pod_name} at path: {path}")
+        
+        # Get file listing from pod
+        result = k8s_client_to_use.browse_pod_files(namespace, pod_name, path)
+        
+        if result['success']:
+            # Log activity
+            app.db.log_activity(
+                user_id=request.current_user['id'],
+                action_type='browse_pod_files',
+                command=f"kubectl exec {pod_name} -n {namespace} -- ls -la {path}",
+                success=True
+            )
+            
+            return jsonify({
+                'success': True,
+                'files': result['files'],
+                'pod_name': pod_name,
+                'namespace': namespace,
+                'current_path': result.get('current_path', path),
+                'timestamp': result['timestamp']
+            })
+        else:
+            # Log failed activity
+            app.db.log_activity(
+                user_id=request.current_user['id'],
+                action_type='browse_pod_files',
+                command=f"kubectl exec {pod_name} -n {namespace} -- ls -la {path}",
+                success=False,
+                error_message=result.get('error', 'Unknown error')
+            )
+            
+            return jsonify({
+                'success': False,
+                'error': result.get('error', 'Failed to browse pod files'),
+                'files': []
+            }), 500
+        
+    except Exception as e:
+        logger.error(f"Error browsing pod files: {str(e)}")
+        
+        # Log failed activity
+        app.db.log_activity(
+            user_id=request.current_user['id'],
+            action_type='browse_pod_files',
+            command=f"kubectl exec {pod_name} -n {namespace} -- ls -la {path}",
+            success=False,
+            error_message=str(e)
+        )
+        
+        return jsonify({
+            'success': False,
+            'error': 'Failed to browse pod files',
+            'files': []
+        }), 500
+
+@app.route('/api/pods/<namespace>/<pod_name>/read', methods=['POST'])
+@require_user_auth
+def read_pod_file(namespace, pod_name):
+    """Read file content inside a pod (READ ONLY)"""
+    try:
+        data = request.get_json()
+        if not data or 'file_path' not in data:
+            return jsonify({
+                'success': False,
+                'error': 'File path is required',
+                'content': ''
+            }), 400
+        
+        file_path = data['file_path']
+        
+        # Get active kubeconfig and create appropriate K8sClient
+        active_kubeconfig = app.db.get_active_kubeconfig()
+        if active_kubeconfig:
+            k8s_client_to_use = K8sClient(kubeconfig_path=active_kubeconfig['path'])
+            logger.info(f"Using active kubeconfig: {active_kubeconfig['name']} at {active_kubeconfig['path']}")
+        else:
+            k8s_client_to_use = app.k8s_client  # Fallback to default client
+            logger.warning("No active kubeconfig found, using default client")
+        
+        # Get file content from pod
+        result = k8s_client_to_use.read_pod_file(namespace, pod_name, file_path)
+        
+        if result['success']:
+            # Log activity
+            app.db.log_activity(
+                user_id=request.current_user['id'],
+                action_type='read_pod_file',
+                command=f"kubectl exec {pod_name} -n {namespace} -- cat {file_path}",
+                success=True
+            )
+            
+            return jsonify({
+                'success': True,
+                'content': result['content'],
+                'pod_name': pod_name,
+                'namespace': namespace,
+                'file_path': file_path,
+                'timestamp': result['timestamp']
+            })
+        else:
+            # Log failed activity
+            app.db.log_activity(
+                user_id=request.current_user['id'],
+                action_type='read_pod_file',
+                command=f"kubectl exec {pod_name} -n {namespace} -- cat {file_path}",
+                success=False,
+                error_message=result.get('error', 'Unknown error')
+            )
+            
+            return jsonify({
+                'success': False,
+                'error': result.get('error', 'Failed to read pod file'),
+                'content': ''
+            }), 500
+        
+    except Exception as e:
+        logger.error(f"Error reading pod file: {str(e)}")
+        
+        # Log failed activity
+        app.db.log_activity(
+            user_id=request.current_user['id'],
+            action_type='read_pod_file',
+            command=f"kubectl exec {pod_name} -n {namespace} -- cat {file_path}",
+            success=False,
+            error_message=str(e)
+        )
+        
+        return jsonify({
+            'success': False,
+            'error': 'Failed to read pod file',
+            'content': ''
+        }), 500
+
 # ==================== CHAT ENDPOINT ====================
 
 @app.route('/chat', methods=['POST'])

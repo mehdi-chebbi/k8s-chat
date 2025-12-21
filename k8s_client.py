@@ -3,7 +3,7 @@ import json
 import logging
 import re
 import os
-from typing import Dict, List, Optional, Any
+from typing import Dict, List, Optional, Any, Tuple
 from datetime import datetime
 
 logger = logging.getLogger(__name__)
@@ -218,6 +218,149 @@ class K8sClient:
                 'error': str(e),
                 'logs': ''
             }
+    
+    def read_pod_file(self, namespace: str, pod_name: str, file_path: str) -> Dict[str, Any]:
+        """Read file content from inside a pod (READ ONLY)"""
+        try:
+            # Verify file path is safe (READ ONLY operations)
+            is_safe, safety_reason = self._verify_file_path_safety(file_path)
+            if not is_safe:
+                return {
+                    'success': False,
+                    'error': f'File access denied for safety reasons: {safety_reason}',
+                    'content': ''
+                }
+            
+            result = self._run_kubectl_command([
+                'exec', pod_name, '-n', namespace, '--', 'cat', file_path
+            ])
+            
+            if result['success']:
+                return {
+                    'success': True,
+                    'content': result['stdout'],
+                    'timestamp': result['timestamp']
+                }
+            else:
+                return {
+                    'success': False,
+                    'error': result.get('stderr', 'Failed to read file'),
+                    'content': ''
+                }
+        except Exception as e:
+            return {
+                'success': False,
+                'error': str(e),
+                'content': ''
+            }
+    
+    def browse_pod_files(self, namespace: str, pod_name: str, path: str = '/') -> Dict[str, Any]:
+        """Browse files inside a pod (READ ONLY)"""
+        try:
+            # Verify path is safe (READ ONLY operations)
+            is_safe, safety_reason = self._verify_file_path_safety(path)
+            if not is_safe:
+                return {
+                    'success': False,
+                    'error': f'Path access denied for safety reasons: {safety_reason}',
+                    'files': []
+                }
+            
+            result = self._run_kubectl_command([
+                'exec', pod_name, '-n', namespace, '--', 'ls', '-la', path
+            ])
+            
+            if result['success']:
+                # Parse ls output to structured file list
+                files = self._parse_ls_output(result['stdout'])
+                return {
+                    'success': True,
+                    'files': files,
+                    'current_path': path,
+                    'timestamp': result['timestamp']
+                }
+            else:
+                return {
+                    'success': False,
+                    'error': result.get('stderr', 'Failed to list files'),
+                    'files': []
+                }
+        except Exception as e:
+            return {
+                'success': False,
+                'error': str(e),
+                'files': []
+            }
+    
+    def _verify_file_path_safety(self, path: str) -> Tuple[bool, str]:
+        """Verify file path is safe for READ ONLY operations"""
+        try:
+            # Normalize path
+            path = path.strip()
+            if not path:
+                path = '/'
+            
+            # READ ONLY means we can access any file safely
+            # No write operations are allowed, only ls and cat
+            
+            # Basic validation - prevent command injection
+            if any(char in path for char in ['|', '&', ';', '`', '$', '(', ')']):
+                return False, "Invalid characters in path"
+            
+            # Allow any path since it's read-only
+            return True, "Path is safe for read access"
+            
+        except Exception as e:
+            return False, f"Error verifying path: {str(e)}"
+    
+    def _parse_ls_output(self, ls_output: str) -> List[Dict[str, Any]]:
+        """Parse ls -la output into structured file list"""
+        try:
+            files = []
+            lines = ls_output.strip().split('\n')
+            
+            for line in lines:
+                if not line.strip() or line.startswith('total'):
+                    continue
+                
+                # Parse ls -la format
+                # Example: -rw-r--r-- 1 root root  1234 Jan 1 12:00 filename
+                parts = line.split()
+                if len(parts) < 9:
+                    continue
+                
+                permissions = parts[0]
+                owner = parts[2]
+                group = parts[3]
+                size = parts[4] if parts[4].isdigit() else '0'
+                filename = ' '.join(parts[8:])
+                
+                # Determine file type
+                file_type = 'file'
+                if permissions.startswith('d'):
+                    file_type = 'directory'
+                elif permissions.startswith('l'):
+                    file_type = 'symlink'
+                elif permissions.startswith('c'):
+                    file_type = 'character'
+                elif permissions.startswith('b'):
+                    file_type = 'block'
+                
+                files.append({
+                    'name': filename,
+                    'type': file_type,
+                    'permissions': permissions,
+                    'owner': owner,
+                    'group': group,
+                    'size': size,
+                    'modified': ' '.join(parts[5:8]) if len(parts) > 8 else ''
+                })
+            
+            return files
+            
+        except Exception as e:
+            logger.error(f"Error parsing ls output: {str(e)}")
+            return []
     
     def describe_deployment(self, deployment_name: str, namespace: str) -> Dict[str, Any]:
         """Describe a specific deployment"""

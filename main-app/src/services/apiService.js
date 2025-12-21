@@ -469,6 +469,60 @@ class ApiService {
       return { success: false, error: error.response?.data?.error || 'Failed to get pod logs' };
     }
   }
+
+  async describePod(namespace, podName) {
+    try {
+      const response = await this.api.get(`/api/pods/${namespace}/${podName}/describe`);
+      return { 
+        success: true, 
+        description: response.data.description,
+        podName: response.data.pod_name,
+        namespace: response.data.namespace,
+        timestamp: response.data.timestamp
+      };
+    } catch (error) {
+      console.error('Describe pod error:', error);
+      return { success: false, error: error.response?.data?.error || 'Failed to describe pod' };
+    }
+  }
+
+  async browsePodFiles(namespace, podName, path = '/') {
+    try {
+      const response = await this.api.get(`/api/pods/${namespace}/${podName}/browse`, {
+        params: { path: path || '/' }
+      });
+      return { 
+        success: true, 
+        files: response.data.files,
+        podName: response.data.pod_name,
+        namespace: response.data.namespace,
+        currentPath: response.data.current_path,
+        timestamp: response.data.timestamp
+      };
+    } catch (error) {
+      console.error('Browse pod files error:', error);
+      return { success: false, error: error.response?.data?.error || 'Failed to browse pod files' };
+    }
+  }
+
+  async readPodFile(namespace, podName, filePath) {
+    try {
+      const response = await this.api.post(`/api/pods/${namespace}/${podName}/read`, {
+        file_path: filePath
+      });
+      return { 
+        success: true, 
+        content: response.data.content,
+        podName: response.data.pod_name,
+        namespace: response.data.namespace,
+        filePath: response.data.file_path,
+        timestamp: response.data.timestamp
+      };
+    } catch (error) {
+      console.error('Read pod file error:', error);
+      return { success: false, error: error.response?.data?.error || 'Failed to read pod file' };
+    }
+  }
 }
 
 export const apiService = new ApiService();
