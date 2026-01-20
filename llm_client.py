@@ -8,6 +8,42 @@ from abc import ABC, abstractmethod
 
 logger = logging.getLogger(__name__)
 
+def extract_kubectl_commands(content: str) -> list:
+    """
+    Extract kubectl commands from AI response, handling markdown formatting.
+    
+    Args:
+        content: The AI response text that may contain kubectl commands
+        
+    Returns:
+        List of kubectl commands (max 3)
+    """
+    commands = []
+    
+    for line in content.split('\n'):
+        line = line.strip()
+        
+        # Skip empty lines
+        if not line:
+            continue
+        
+        # Remove markdown list markers (-, *, 1., 2., etc.)
+        line = re.sub(r'^[-*]\s+', '', line)  # Remove "- " or "* "
+        line = re.sub(r'^\d+\.\s+', '', line)  # Remove "1. " or "2. "
+        line = line.strip()
+        
+        # Now check if it's a kubectl command
+        if line.startswith('kubectl '):
+            commands.append(line)
+        elif 'kubectl ' in line:
+            # Handle cases like "Run: kubectl get pods"
+            # Extract everything from 'kubectl' onwards
+            match = re.search(r'kubectl\s+.+', line)
+            if match:
+                commands.append(match.group(0))
+    
+    return commands[:3]  # Limit to 3 commands
+
 class LLMProvider(ABC):
     """Abstract base class for LLM providers"""
     
@@ -37,7 +73,7 @@ class LLMProvider(ABC):
 
 class OpenRouterProvider(LLMProvider):
     """OpenRouter API provider for LLM integration"""
-    
+
     def __init__(self, api_key: str = None, model: str = "minimax/minimax-01"):
         """Initialize OpenRouter provider"""
         self.api_url = "https://openrouter.ai/api/v1/chat/completions"
@@ -232,25 +268,13 @@ Commands:
             if response.status_code == 200:
                 result = response.json()
                 content = result['choices'][0]['message']['content']
-                
+
                 # Extract commands from the response
-                commands = []
-                for line in content.split('\n'):
-                    line = line.strip()
-                    if line.startswith('kubectl ') or 'kubectl ' in line:
-                        # Extract the command
-                        if 'kubectl ' in line:
-                            parts = line.split('kubectl ')
-                            for part in parts:
-                                if part.strip():
-                                    commands.append(f"kubectl {part.strip()}")
-                        else:
-                            commands.append(line.strip())
-                
-                return commands[:3]  # Limit to 3 commands
-            
+                commands = extract_kubectl_commands(content)
+                return commands
+
             return []
-            
+
         except Exception as e:
             logger.error(f"Error suggesting commands: {str(e)}")
             return []
@@ -318,7 +342,7 @@ Be honest about what you can and cannot determine from the outputs."""
             logger.error(f"Error analyzing command outputs: {str(e)}")
             return self._generate_enhanced_fallback_response({'type': 'analysis'}, command_outputs)
     
-    def suggest_follow_up_commands(self, original_question: str, discovery_outputs: Dict[str, Any], 
+    def suggest_follow_up_commands(self, original_question: str, discovery_outputs: Dict[str, Any],
                                 conversation_history: List[Dict[str, Any]]) -> List[str]:
         """Suggest follow-up commands based on initial investigation"""
         try:
@@ -346,52 +370,40 @@ If resource issues: check resource quotas, node status"""
                         outputs_text += f"Output:\n{output.get('stdout', 'No output')}\n"
                     else:
                         outputs_text += f"Error:\n{output.get('stderr', 'Unknown error')}\n"
-            
+
             messages = [
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": f"Original question: {original_question}\n\nInitial investigation results:{outputs_text}\n\nSuggest 1-2 follow-up commands to investigate further."}
             ]
-            
+
             payload = {
                 "model": self.model,
                 "max_tokens": 500,
                 "messages": messages,
                 "temperature": 0.5
             }
-            
+
             response = requests.post(
                 self.api_url,
                 headers=self.headers,
                 json=payload,
                 timeout=20
             )
-            
+
             if response.status_code == 200:
                 result = response.json()
                 content = result['choices'][0]['message']['content']
-                
+
                 # Extract commands from the response
-                commands = []
-                for line in content.split('\n'):
-                    line = line.strip()
-                    if line.startswith('kubectl ') or 'kubectl ' in line:
-                        # Extract the command
-                        if 'kubectl ' in line:
-                            parts = line.split('kubectl ')
-                            for part in parts:
-                                if part.strip():
-                                    commands.append(f"kubectl {part.strip()}")
-                        else:
-                            commands.append(line.strip())
-                
+                commands = extract_kubectl_commands(content)
                 return commands[:2]  # Limit to 2 follow-up commands
-            
+
             return []
-            
+
         except Exception as e:
             logger.error(f"Error suggesting follow-up commands: {str(e)}")
             return []
-    
+
     def test_connection(self) -> Dict[str, Any]:
         """Test connection to OpenRouter API"""
         try:
@@ -909,25 +921,13 @@ Commands:
             if response.status_code == 200:
                 result = response.json()
                 content = result['choices'][0]['message']['content']
-                
+
                 # Extract commands from the response
-                commands = []
-                for line in content.split('\n'):
-                    line = line.strip()
-                    if line.startswith('kubectl ') or 'kubectl ' in line:
-                        # Extract the command
-                        if 'kubectl ' in line:
-                            parts = line.split('kubectl ')
-                            for part in parts:
-                                if part.strip():
-                                    commands.append(f"kubectl {part.strip()}")
-                        else:
-                            commands.append(line.strip())
-                
-                return commands[:3]  # Limit to 3 commands
-            
+                commands = extract_kubectl_commands(content)
+                return commands
+
             return []
-            
+
         except Exception as e:
             logger.error(f"Error suggesting commands: {str(e)}")
             return []
@@ -1046,25 +1046,13 @@ If resource issues: check resource quotas, node status"""
             if response.status_code == 200:
                 result = response.json()
                 content = result['choices'][0]['message']['content']
-                
+
                 # Extract commands from the response
-                commands = []
-                for line in content.split('\n'):
-                    line = line.strip()
-                    if line.startswith('kubectl ') or 'kubectl ' in line:
-                        # Extract the command
-                        if 'kubectl ' in line:
-                            parts = line.split('kubectl ')
-                            for part in parts:
-                                if part.strip():
-                                    commands.append(f"kubectl {part.strip()}")
-                        else:
-                            commands.append(line.strip())
-                
+                commands = extract_kubectl_commands(content)
                 return commands[:2]  # Limit to 2 follow-up commands
-            
+
             return []
-            
+
         except Exception as e:
             logger.error(f"Error suggesting follow-up commands: {str(e)}")
             return []
