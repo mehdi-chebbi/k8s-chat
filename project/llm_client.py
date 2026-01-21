@@ -74,6 +74,100 @@ class LLMProvider(ABC):
 class OpenRouterProvider(LLMProvider):
     """OpenRouter API provider for LLM integration"""
 
+
+
+
+    def analyze_command_outputs_stream(self, user_question: str, command_outputs: Dict[str, Any], 
+                                   conversation_history: List[Dict[str, Any]]) -> Generator[str, None, None]:
+    """Analyze kubectl command outputs and provide insights - STREAMING VERSION"""
+    try:
+        # Build a focused prompt for output analysis
+        system_prompt = """You are a Kubernetes expert analyzing command outputs to help the user. 
+
+Your task:
+1. Analyze the provided kubectl command outputs
+2. Identify any issues, problems, or important information
+3. Provide clear, actionable insights
+4. Be conversational and helpful
+
+Focus on:
+- Pod status issues (CrashLoopBackOff, ImagePullBackOff, Pending, etc.)
+- Resource constraints (CPU, memory)
+- Configuration problems
+- Network issues
+- Error messages and their meanings
+
+Be honest about what you can and cannot determine from the outputs."""
+
+        # Format command outputs for the prompt
+        outputs_text = ""
+        if command_outputs:
+            for cmd, output in command_outputs.items():
+                outputs_text += f"\n\nCommand: {cmd}\n"
+                if output.get('success'):
+                    outputs_text += f"Output:\n{output.get('stdout', 'No output')}\n"
+                else:
+                    outputs_text += f"Error:\n{output.get('stderr', 'Unknown error')}\n"
+        
+        messages = [
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": f"User question: {user_question}\n\nCommand outputs:{outputs_text}"}
+        ]
+        
+        payload = {
+            "model": self.model,
+            "max_tokens": 1500,
+            "messages": messages,
+            "temperature": 0.7,
+            "stream": True
+        }
+        
+        response = requests.post(
+            self.api_url,
+            headers=self.headers,
+            json=payload,
+            stream=True,
+            timeout=60
+        )
+        
+        if response.status_code == 200:
+            for line in response.iter_lines():
+                if line:
+                    line = line.decode('utf-8')
+                    if line.startswith('data: '):
+                        data_str = line[6:]  # Remove 'data: ' prefix
+                        if data_str == '[DONE]':
+                            break
+                        
+                        try:
+                            data = json.loads(data_str)
+                            if 'choices' in data and len(data['choices']) > 0:
+                                delta = data['choices'][0].get('delta', {})
+                                content = delta.get('content', '')
+                                if content:
+                                    yield content
+                        except json.JSONDecodeError:
+                            continue
+            
+            logger.info("Successfully completed streaming analysis")
+        else:
+            logger.error(f"API error: {response.status_code} - {response.text}")
+            # Fallback to non-streaming
+            fallback = self._generate_enhanced_fallback_response({'type': 'analysis'}, command_outputs)
+            for char in fallback:
+                yield char
+            
+    except requests.exceptions.Timeout:
+        logger.error("API request timed out")
+        fallback = self._generate_enhanced_fallback_response({'type': 'analysis'}, command_outputs)
+        for char in fallback:
+            yield char
+    except Exception as e:
+        logger.error(f"Error in streaming analysis: {str(e)}")
+        fallback = self._generate_enhanced_fallback_response({'type': 'analysis'}, command_outputs)
+        for char in fallback:
+            yield char
+
     def __init__(self, api_key: str = None, model: str = "minimax/minimax-01"):
         """Initialize OpenRouter provider"""
         self.api_url = "https://openrouter.ai/api/v1/chat/completions"
@@ -889,7 +983,100 @@ kubectl get nodes
 
 class LocalLLMProvider(LLMProvider):
     """Local LLM provider for self-hosted models"""
-    
+    def analyze_command_outputs_stream(self, user_question: str, command_outputs: Dict[str, Any], 
+                                   conversation_history: List[Dict[str, Any]]) -> Generator[str, None, None]:
+    """Analyze kubectl command outputs and provide insights - STREAMING VERSION"""
+    try:
+        # Build a focused prompt for output analysis
+        system_prompt = """You are a Kubernetes expert analyzing command outputs to help the user. 
+
+Your task:
+1. Analyze the provided kubectl command outputs
+2. Identify any issues, problems, or important information
+3. Provide clear, actionable insights
+4. Be conversational and helpful
+
+Focus on:
+- Pod status issues (CrashLoopBackOff, ImagePullBackOff, Pending, etc.)
+- Resource constraints (CPU, memory)
+- Configuration problems
+- Network issues
+- Error messages and their meanings
+
+Be honest about what you can and cannot determine from the outputs."""
+
+        # Format command outputs for the prompt
+        outputs_text = ""
+        if command_outputs:
+            for cmd, output in command_outputs.items():
+                outputs_text += f"\n\nCommand: {cmd}\n"
+                if output.get('success'):
+                    outputs_text += f"Output:\n{output.get('stdout', 'No output')}\n"
+                else:
+                    outputs_text += f"Error:\n{output.get('stderr', 'Unknown error')}\n"
+        
+        messages = [
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": f"User question: {user_question}\n\nCommand outputs:{outputs_text}"}
+        ]
+        
+        payload = {
+            "model": self.model,
+            "max_tokens": 1500,
+            "messages": messages,
+            "temperature": 0.7,
+            "stream": True
+        }
+        
+        response = requests.post(
+            self.api_url,
+            headers=self.headers,
+            json=payload,
+            stream=True,
+            timeout=60
+        )
+        
+        if response.status_code == 200:
+            for line in response.iter_lines():
+                if line:
+                    line = line.decode('utf-8')
+                    if line.startswith('data: '):
+                        data_str = line[6:]  # Remove 'data: ' prefix
+                        if data_str == '[DONE]':
+                            break
+                        
+                        try:
+                            data = json.loads(data_str)
+                            if 'choices' in data and len(data['choices']) > 0:
+                                delta = data['choices'][0].get('delta', {})
+                                content = delta.get('content', '')
+                                if content:
+                                    yield content
+                        except json.JSONDecodeError:
+                            continue
+            
+            logger.info("Successfully completed streaming analysis")
+        else:
+            logger.error(f"API error: {response.status_code} - {response.text}")
+            # Fallback to non-streaming
+            fallback = self._generate_enhanced_fallback_response({'type': 'analysis'}, command_outputs)
+            for char in fallback:
+                yield char
+            
+    except requests.exceptions.Timeout:
+        logger.error("API request timed out")
+        fallback = self._generate_enhanced_fallback_response({'type': 'analysis'}, command_outputs)
+        for char in fallback:
+            yield char
+    except Exception as e:
+        logger.error(f"Error in streaming analysis: {str(e)}")
+        fallback = self._generate_enhanced_fallback_response({'type': 'analysis'}, command_outputs)
+        for char in fallback:
+            yield char
+
+
+
+
     def __init__(self, endpoint_url: str = "http://localhost:8080", model: str = "default"):
         """Initialize Local LLM provider"""
         self.endpoint_url = endpoint_url.rstrip('/')

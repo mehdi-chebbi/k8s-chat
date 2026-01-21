@@ -6,7 +6,7 @@ import re
 import sys
 from datetime import datetime
 import uuid
-
+from flask import Response, stream_with_context 
 from k8s_client import K8sClient
 from llm_client import LLMClientFactory
 from question_classifier import HybridQuestionClassifier, QuestionType
@@ -1134,7 +1134,222 @@ def read_pod_file(namespace, pod_name):
         }), 500
 
 # ==================== CHAT ENDPOINT ====================
+@app.route('/chat/stream', methods=['POST'])
+@require_user_auth
+def chat_stream():
+    """
+    Streaming chat endpoint - sends AI response progressively using SSE
+    """
+    try:
+        data = request.get_json()
+        
+        if not data or 'message' not in data:
+            return jsonify({'error': 'Message is required'}), 400
+        
+        user_message = data['message']
+        session_id = data.get('session_id', 'default')
+        user_id = request.current_user['id']
+        
+        logger.info(f"Received streaming message from user {user_id}: {user_message}")
+        
+        # Initialize conversation history for session
+        if session_id not in app.conversation_history:
+            db_history = app.db.get_chat_history(user_id, session_id=session_id)
+            app.conversation_history[session_id] = [
+                {'role': msg['role'], 'message': msg['message'], 'timestamp': msg['timestamp']}
+                for msg in db_history
+            ]
+        
+        # Add user message to history
+        app.conversation_history[session_id].append({
+            'role': 'user',
+            'message': user_message,
+            'timestamp': datetime.now().isoformat()
+        })
+        
+        # Get active LLM configuration
+        active_llm_config = app.db.get_active_llm_config()
+        if not active_llm_config:
+            def error_generator():
+                yield f"data: {json.dumps({'error': 'No active LLM configuration'})}\n\n"
+            return Response(stream_with_context(error_generator()), 
+                          mimetype='text/event-stream')
+        
+        # Initialize LLM provider
+        try:
+            provider_config = {
+                'provider': active_llm_config['provider'],
+                'api_key': active_llm_config.get('api_key'),
+                'endpoint_url': active_llm_config.get('endpoint_url'),
+                'model': active_llm_config.get('model') or 'default'
+            }
+            llm_provider = LLMClientFactory.create_provider(provider_config)
+        except Exception as e:
+            logger.error(f"Failed to initialize LLM provider: {str(e)}")
+            def error_generator():
+                yield f"data: {json.dumps({'error': f'Failed to initialize LLM provider: {str(e)}'})}\n\n"
+            return Response(stream_with_context(error_generator()), 
+                          mimetype='text/event-stream')
+        
+        # Update usage statistics
+        app.db.update_api_key_usage(active_llm_config['id'])
+        
+        def generate():
+            """Generator function for SSE streaming"""
+            full_response = ""
+            executed_commands = []
+            command_outputs = {}
+            
+            try:
+                # Step 1: AI decides response type
+                logger.info("Step 1: AI deciding response type...")
+                ai_response = llm_provider.generate_intelligent_response(
+                    user_question=user_message,
+                    conversation_history=app.conversation_history[session_id]
+                )
+                
+                response_type = ai_response['type']
+                suggested_commands = ai_response.get('commands', [])
+                
+                logger.info(f"AI decision: type={response_type}, commands_count={len(suggested_commands)}")
+                
+                # Step 2: Handle based on response type
+                if response_type == 'chat' or not suggested_commands:
+                    # Pure chat - stream the response
+                    logger.info("Streaming chat response...")
+                    
+                    # Send initial metadata
+                    yield f"data: {json.dumps({'type': 'metadata', 'response_type': 'chat'})}\n\n"
+                    
+                    # Stream the AI response
+                    for chunk in llm_provider.generate_response_stream(
+                        user_message=user_message,
+                        intent={'type': 'chat'},
+                        k8s_data=None,
+                        conversation_history=app.conversation_history[session_id]
+                    ):
+                        full_response += chunk
+                        yield f"data: {json.dumps({'type': 'content', 'content': chunk})}\n\n"
+                    
+                else:
+                    # Investigation - execute commands then stream analysis
+                    logger.info(f"Investigation mode: executing {len(suggested_commands)} commands...")
+                    
+                    # Send metadata
+                    yield f"data: {json.dumps({'type': 'metadata', 'response_type': 'investigation', 'commands_count': len(suggested_commands)})}\n\n"
+                    
+                    # Get active kubeconfig
+                    active_kubeconfig = app.db.get_active_kubeconfig()
+                    if active_kubeconfig:
+                        k8s_client_to_use = K8sClient(kubeconfig_path=active_kubeconfig['path'])
+                    else:
+                        k8s_client_to_use = app.k8s_client
+                    
+                    # Execute commands
+                    for cmd in suggested_commands:
+                        logger.info(f"Verifying command: {cmd}")
+                        
+                        # Verify command safety
+                        is_safe, safety_reason = CommandVerifier.is_safe_command(cmd)
+                        if not is_safe:
+                            logger.warning(f"Command blocked: {cmd} - {safety_reason}")
+                            yield f"data: {json.dumps({'type': 'command_blocked', 'command': cmd, 'reason': safety_reason})}\n\n"
+                            
+                            app.db.log_activity(
+                                user_id=user_id,
+                                action_type='command_blocked',
+                                command=cmd,
+                                success=False,
+                                error_message=f"Safety check failed: {safety_reason}"
+                            )
+                            
+                            command_outputs[cmd] = {
+                                'success': False,
+                                'error': f"Command blocked: {safety_reason}",
+                                'safety_blocked': True,
+                                'stdout': '',
+                                'stderr': f"Safety verification failed: {safety_reason}"
+                            }
+                            continue
+                        
+                        # Send command execution notification
+                        yield f"data: {json.dumps({'type': 'command_executing', 'command': cmd})}\n\n"
+                        
+                        # Execute command
+                        cmd_parts = cmd.split()[1:]  # Remove 'kubectl'
+                        output = k8s_client_to_use._run_kubectl_command(cmd_parts)
+                        command_outputs[cmd] = output
+                        executed_commands.append(cmd)
+                        
+                        # Log command execution
+                        app.db.log_activity(
+                            user_id=user_id,
+                            action_type='command_executed',
+                            command=cmd,
+                            success=output.get('success'),
+                            error_message=output.get('stderr') if not output.get('success') else None
+                        )
+                        
+                        # Send command completion
+                        yield f"data: {json.dumps({'type': 'command_completed', 'command': cmd, 'success': output.get('success')})}\n\n"
+                    
+                    # Stream analysis of command outputs
+                    logger.info("Streaming analysis of command outputs...")
+                    yield f"data: {json.dumps({'type': 'analysis_start'})}\n\n"
+                    
+                    for chunk in llm_provider.analyze_command_outputs_stream(
+                        user_question=user_message,
+                        command_outputs=command_outputs,
+                        conversation_history=app.conversation_history[session_id]
+                    ):
+                        full_response += chunk
+                        yield f"data: {json.dumps({'type': 'content', 'content': chunk})}\n\n"
+                
+                # Save to database
+                app.db.save_chat_message(
+                    user_id=user_id,
+                    session_id=session_id,
+                    role='user',
+                    message=user_message
+                )
+                
+                app.db.save_chat_message(
+                    user_id=user_id,
+                    session_id=session_id,
+                    role='assistant',
+                    message=full_response,
+                    commands_executed=executed_commands
+                )
+                
+                # Add to conversation history
+                app.conversation_history[session_id].append({
+                    'role': 'assistant',
+                    'message': full_response,
+                    'timestamp': datetime.now().isoformat(),
+                    'commands_executed': executed_commands
+                })
+                
+                # Log activity
+                app.db.log_activity(
+                    user_id=user_id,
+                    action_type='investigation' if executed_commands else 'chat_message',
+                    success=True
+                )
+                
+                # Send completion event
+                yield f"data: {json.dumps({'type': 'done', 'commands_executed': executed_commands})}\n\n"
+                
+            except Exception as e:
+                logger.error(f"Error in streaming: {str(e)}")
+                yield f"data: {json.dumps({'type': 'error', 'error': str(e)})}\n\n"
+        
+        return Response(stream_with_context(generate()), mimetype='text/event-stream')
+        
+    except Exception as e:
+        logger.error(f"Chat stream endpoint error: {str(e)}")
+        return jsonify({'error': 'An error occurred processing your request'}), 500
 
+        
 @app.route('/chat', methods=['POST'])
 @require_user_auth
 def chat():
