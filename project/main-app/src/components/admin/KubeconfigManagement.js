@@ -1,16 +1,13 @@
 import React, { useState, useEffect } from 'react';
-import { FolderOpen, Plus, Edit2, Trash2, PlayCircle, CheckCircle, XCircle, AlertCircle, Loader2, Lock } from 'lucide-react';
+import { Plus, Edit2, Trash2, PlayCircle, CheckCircle, XCircle, AlertCircle, Loader2, Lock } from 'lucide-react';
 import { apiService } from '../../services/apiService';
 
 const KubeconfigManagement = ({ user, onError, onHealthUpdate }) => {
   const [kubeconfigs, setKubeconfigs] = useState([]);
   const [showCreateKubeconfig, setShowCreateKubeconfig] = useState(false);
   const [editingKubeconfig, setEditingKubeconfig] = useState(null);
-  const [connectionType, setConnectionType] = useState('file'); // 'file' or 'service_account'
   const [createKubeconfigForm, setCreateKubeconfigForm] = useState({
     name: '',
-    path: '',
-    connection_type: 'file',
     cluster_url: '',
     sa_token: '',
     ca_certificate: '',
@@ -47,18 +44,13 @@ const KubeconfigManagement = ({ user, onError, onHealthUpdate }) => {
   const handleCreateKubeconfig = async (e) => {
     e.preventDefault();
 
-    // Validation based on connection type
+    // Validation
     if (!createKubeconfigForm.name) {
       setError('Please fill in configuration name');
       return;
     }
 
-    if (connectionType === 'file' && !createKubeconfigForm.path) {
-      setError('Please fill in kubeconfig path');
-      return;
-    }
-
-    if (connectionType === 'service_account' && (!createKubeconfigForm.cluster_url || !createKubeconfigForm.sa_token)) {
+    if (!createKubeconfigForm.cluster_url || !createKubeconfigForm.sa_token) {
       setError('Please fill in cluster URL and service account token');
       return;
     }
@@ -69,19 +61,8 @@ const KubeconfigManagement = ({ user, onError, onHealthUpdate }) => {
     try {
       const payload = {
         ...createKubeconfigForm,
-        connection_type: connectionType,
         created_by: user.id
       };
-
-      // Remove fields that don't apply to the connection type
-      if (connectionType === 'file') {
-        delete payload.cluster_url;
-        delete payload.sa_token;
-        delete payload.ca_certificate;
-        delete payload.namespace;
-      } else {
-        delete payload.path;
-      }
 
       const result = await apiService.createKubeconfig(payload);
 
@@ -110,12 +91,9 @@ const KubeconfigManagement = ({ user, onError, onHealthUpdate }) => {
 
   const handleEditKubeconfig = (kubeconfig) => {
     setEditingKubeconfig(kubeconfig);
-    setConnectionType(kubeconfig.connection_type || 'file');
 
     setCreateKubeconfigForm({
       name: kubeconfig.name,
-      path: kubeconfig.path || '',
-      connection_type: kubeconfig.connection_type || 'file',
       cluster_url: kubeconfig.cluster_url || '',
       sa_token: '', // Never show token for security
       ca_certificate: kubeconfig.ca_certificate || '',
@@ -129,19 +107,9 @@ const KubeconfigManagement = ({ user, onError, onHealthUpdate }) => {
   const handleUpdateKubeconfig = async (e) => {
     e.preventDefault();
 
-    // Validation based on connection type
+    // Validation
     if (!createKubeconfigForm.name) {
       setError('Please fill in configuration name');
-      return;
-    }
-
-    if (connectionType === 'file' && !createKubeconfigForm.path) {
-      setError('Please fill in kubeconfig path');
-      return;
-    }
-
-    if (connectionType === 'service_account' && !createKubeconfigForm.cluster_url) {
-      setError('Please fill in cluster URL');
       return;
     }
 
@@ -153,18 +121,9 @@ const KubeconfigManagement = ({ user, onError, onHealthUpdate }) => {
         ...createKubeconfigForm
       };
 
-      // Remove fields that don't apply to the connection type
-      if (connectionType === 'file') {
-        delete payload.cluster_url;
+      // Only include token if provided (user needs to re-enter it for security)
+      if (!payload.sa_token) {
         delete payload.sa_token;
-        delete payload.ca_certificate;
-        delete payload.namespace;
-      } else {
-        delete payload.path;
-        // Only update token if provided (user needs to re-enter it for security)
-        if (!payload.sa_token) {
-          delete payload.sa_token;
-        }
       }
 
       const result = await apiService.updateKubeconfig(editingKubeconfig.id, payload);
@@ -244,8 +203,6 @@ const KubeconfigManagement = ({ user, onError, onHealthUpdate }) => {
   const resetForm = () => {
     setCreateKubeconfigForm({
       name: '',
-      path: '',
-      connection_type: 'file',
       cluster_url: '',
       sa_token: '',
       ca_certificate: '',
@@ -254,7 +211,6 @@ const KubeconfigManagement = ({ user, onError, onHealthUpdate }) => {
       is_default: false
     });
     setEditingKubeconfig(null);
-    setConnectionType('file');
   };
 
   const formatDate = (dateString) => {
@@ -273,7 +229,7 @@ const KubeconfigManagement = ({ user, onError, onHealthUpdate }) => {
             <Plus className="w-4 h-4" />
             Add Kubeconfig
           </button>
-          <FolderOpen className="w-6 h-6 text-k8s-cyan" />
+          <Lock className="w-6 h-6 text-k8s-cyan" />
         </div>
       </div>
 
@@ -302,47 +258,6 @@ const KubeconfigManagement = ({ user, onError, onHealthUpdate }) => {
 
             <form onSubmit={editingKubeconfig ? handleUpdateKubeconfig : handleCreateKubeconfig} className="space-y-4">
 
-              {/* Connection Type Selector */}
-              <div className="flex gap-4">
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="radio"
-                    name="connection_type"
-                    value="file"
-                    checked={connectionType === 'file'}
-                    onChange={(e) => {
-                      setConnectionType(e.target.value);
-                      handleCreateKubeconfigChange(e);
-                    }}
-                    className="w-4 h-4 text-k8s-blue bg-k8s-dark border-k8s-gray rounded focus:ring-k8s-blue"
-                    disabled={loading.kubeconfigAction}
-                  />
-                  <span className="text-sm text-k8s-gray">
-                    <FolderOpen className="w-4 h-4 inline mr-1" />
-                    Kubeconfig File
-                  </span>
-                </label>
-
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="radio"
-                    name="connection_type"
-                    value="service_account"
-                    checked={connectionType === 'service_account'}
-                    onChange={(e) => {
-                      setConnectionType(e.target.value);
-                      handleCreateKubeconfigChange(e);
-                    }}
-                    className="w-4 h-4 text-k8s-blue bg-k8s-dark border-k8s-gray rounded focus:ring-k8s-blue"
-                    disabled={loading.kubeconfigAction}
-                  />
-                  <span className="text-sm text-k8s-gray">
-                    <Lock className="w-4 h-4 inline mr-1" />
-                    Service Account
-                  </span>
-                </label>
-              </div>
-
               {/* Name Field */}
               <div>
                 <label htmlFor="kubeconfig-name" className="block text-sm font-medium text-k8s-gray mb-2">
@@ -360,96 +275,76 @@ const KubeconfigManagement = ({ user, onError, onHealthUpdate }) => {
                 />
               </div>
 
-              {/* Conditional Fields based on Connection Type */}
-              {connectionType === 'file' ? (
-                /* File-based fields */
+              {/* Service Account fields */}
+              <div className="space-y-4">
                 <div>
-                  <label htmlFor="kubeconfig-path" className="block text-sm font-medium text-k8s-gray mb-2">
-                    Kubeconfig Path
+                  <label htmlFor="kubeconfig-cluster-url" className="block text-sm font-medium text-k8s-gray mb-2">
+                    Cluster URL <span className="text-red-400">*</span>
                   </label>
                   <input
                     type="text"
-                    id="kubeconfig-path"
-                    name="path"
-                    value={createKubeconfigForm.path}
+                    id="kubeconfig-cluster-url"
+                    name="cluster_url"
+                    value={createKubeconfigForm.cluster_url}
                     onChange={handleCreateKubeconfigChange}
                     className="k8s-input w-full font-mono text-sm"
-                    placeholder="/path/to/kubeconfig"
+                    placeholder="https://k8s.example.com:6443"
                     disabled={loading.kubeconfigAction}
                   />
                 </div>
-              ) : (
-                /* Service Account fields */
-                <div className="space-y-4">
-                  <div>
-                    <label htmlFor="kubeconfig-cluster-url" className="block text-sm font-medium text-k8s-gray mb-2">
-                      Cluster URL <span className="text-red-400">*</span>
-                    </label>
-                    <input
-                      type="text"
-                      id="kubeconfig-cluster-url"
-                      name="cluster_url"
-                      value={createKubeconfigForm.cluster_url}
-                      onChange={handleCreateKubeconfigChange}
-                      className="k8s-input w-full font-mono text-sm"
-                      placeholder="https://k8s.example.com:6443"
-                      disabled={loading.kubeconfigAction}
-                    />
-                  </div>
 
-                  <div>
-                    <label htmlFor="kubeconfig-sa-token" className="block text-sm font-medium text-k8s-gray mb-2">
-                      Service Account Token <span className="text-red-400">*</span>
-                    </label>
-                    <input
-                      type="password"
-                      id="kubeconfig-sa-token"
-                      name="sa_token"
-                      value={createKubeconfigForm.sa_token}
-                      onChange={handleCreateKubeconfigChange}
-                      className="k8s-input w-full font-mono text-sm"
-                      placeholder={editingKubeconfig ? "••••••••••••••••" : "Enter SA token"}
-                      disabled={loading.kubeconfigAction}
-                    />
-                    {editingKubeconfig && (
-                      <p className="text-xs text-k8s-gray mt-1">
-                        Leave blank to keep existing token (for security)
-                      </p>
-                    )}
-                  </div>
-
-                  <div>
-                    <label htmlFor="kubeconfig-ca-cert" className="block text-sm font-medium text-k8s-gray mb-2">
-                      CA Certificate (Optional)
-                    </label>
-                    <textarea
-                      id="kubeconfig-ca-cert"
-                      name="ca_certificate"
-                      value={createKubeconfigForm.ca_certificate}
-                      onChange={handleCreateKubeconfigChange}
-                      className="k8s-input w-full h-20 resize-none font-mono text-xs"
-                      placeholder="Paste base64 CA certificate (optional)"
-                      disabled={loading.kubeconfigAction}
-                    />
-                  </div>
-
-                  <div>
-                    <label htmlFor="kubeconfig-namespace" className="block text-sm font-medium text-k8s-gray mb-2">
-                      Namespace (Optional)
-                    </label>
-                    <input
-                      type="text"
-                      id="kubeconfig-namespace"
-                      name="namespace"
-                      value={createKubeconfigForm.namespace}
-                      onChange={handleCreateKubeconfigChange}
-                      className="k8s-input w-full font-mono text-sm"
-                      placeholder="default, production, etc."
-                      disabled={loading.kubeconfigAction}
-                    />
-                  </div>
+                <div>
+                  <label htmlFor="kubeconfig-sa-token" className="block text-sm font-medium text-k8s-gray mb-2">
+                    Service Account Token <span className="text-red-400">*</span>
+                  </label>
+                  <input
+                    type="password"
+                    id="kubeconfig-sa-token"
+                    name="sa_token"
+                    value={createKubeconfigForm.sa_token}
+                    onChange={handleCreateKubeconfigChange}
+                    className="k8s-input w-full font-mono text-sm"
+                    placeholder={editingKubeconfig ? "••••••••••••••••" : "Enter SA token"}
+                    disabled={loading.kubeconfigAction}
+                  />
+                  {editingKubeconfig && (
+                    <p className="text-xs text-k8s-gray mt-1">
+                      Leave blank to keep existing token (for security)
+                    </p>
+                  )}
                 </div>
-              )}
+
+                <div>
+                  <label htmlFor="kubeconfig-ca-cert" className="block text-sm font-medium text-k8s-gray mb-2">
+                    CA Certificate (Optional)
+                  </label>
+                  <textarea
+                    id="kubeconfig-ca-cert"
+                    name="ca_certificate"
+                    value={createKubeconfigForm.ca_certificate}
+                    onChange={handleCreateKubeconfigChange}
+                    className="k8s-input w-full h-20 resize-none font-mono text-xs"
+                    placeholder="Paste base64 CA certificate (optional)"
+                    disabled={loading.kubeconfigAction}
+                  />
+                </div>
+
+                <div>
+                  <label htmlFor="kubeconfig-namespace" className="block text-sm font-medium text-k8s-gray mb-2">
+                    Namespace (Optional)
+                  </label>
+                  <input
+                    type="text"
+                    id="kubeconfig-namespace"
+                    name="namespace"
+                    value={createKubeconfigForm.namespace}
+                    onChange={handleCreateKubeconfigChange}
+                    className="k8s-input w-full font-mono text-sm"
+                    placeholder="default, production, etc."
+                    disabled={loading.kubeconfigAction}
+                  />
+                </div>
+              </div>
 
               {/* Description Field */}
               <div>
@@ -540,94 +435,57 @@ const KubeconfigManagement = ({ user, onError, onHealthUpdate }) => {
                 {kubeconfigs.length === 0 ? (
                   <tr>
                     <td colSpan="7" className="text-center py-8 text-k8s-gray">
-                      No kubeconfigs configured yet. Add your first kubeconfig to get started.
+                      No kubeconfigs configured yet. Click "Add Kubeconfig" to get started.
                     </td>
                   </tr>
                 ) : (
                   kubeconfigs.map((config) => (
-                    <tr key={config.id} className="border-b border-k8s-gray/20 hover:bg-k8s-dark/30 transition-colors">
+                    <tr key={config.id} className="border-b border-k8s-blue/10 hover:bg-k8s-blue/5 transition-colors">
                       <td className="py-4 px-6">
-                        <div className="flex items-center gap-3">
-                          <div>
-                            <p className="text-white font-medium">{config.name}</p>
-                            {config.is_default && (
-                              <span className="inline-block px-2 py-1 text-xs bg-k8s-blue/20 text-k8s-blue rounded-full">
-                                Default
-                              </span>
-                            )}
-                            {config.is_active && (
-                              <span className="inline-block px-2 py-1 text-xs bg-k8s-green/20 text-k8s-green rounded-full ml-2">
-                                Active
-                              </span>
-                            )}
-                          </div>
-                          {config.connection_type === 'service_account' && (
-                            <Lock className="w-4 h-4 text-k8s-cyan" title="Service Account" />
-                          )}
-                        </div>
+                        <div className="font-medium text-white">{config.name}</div>
                         {config.description && (
-                          <p className="text-k8s-gray text-sm mt-1">{config.description}</p>
+                          <div className="text-sm text-k8s-gray">{config.description}</div>
                         )}
                       </td>
                       <td className="py-4 px-6">
-                        <span className={`inline-flex items-center gap-2 text-xs px-2 py-1 rounded ${
-                          config.connection_type === 'service_account'
-                            ? 'bg-k8s-cyan/20 text-k8s-cyan'
-                            : 'bg-k8s-blue/20 text-k8s-blue'
-                        }`}>
-                          {config.connection_type === 'service_account' ? (
-                            <>
-                              <Lock className="w-3 h-3" />
-                              SA
-                            </>
-                          ) : (
-                            <>
-                              <FolderOpen className="w-3 h-3" />
-                              File
-                            </>
-                          )}
+                        <span className="inline-flex items-center gap-2 px-2 py-1 rounded text-xs font-medium bg-k8s-cyan/20 text-k8s-cyan">
+                          <Lock className="w-3 h-3" />
+                          Service Account
                         </span>
                       </td>
                       <td className="py-4 px-6">
-                        <code className="text-k8s-cyan text-sm bg-k8s-dark/30 px-2 py-1 rounded">
-                          {config.connection_type === 'service_account' 
-                            ? config.cluster_url 
-                            : config.path}
-                        </code>
+                        <div className="text-sm text-k8s-gray font-mono">
+                          {config.cluster_url}
+                        </div>
                       </td>
                       <td className="py-4 px-6">
                         {config.is_active ? (
-                          <div className="flex items-center gap-2 text-k8s-green">
+                          <span className="inline-flex items-center gap-1 text-k8s-green">
                             <CheckCircle className="w-4 h-4" />
-                            <span className="text-sm">Active</span>
-                          </div>
+                            Active
+                          </span>
                         ) : (
-                          <div className="flex items-center gap-2 text-k8s-gray">
-                            <XCircle className="w-4 h-4" />
-                            <span className="text-sm">Inactive</span>
-                          </div>
+                          <span className="text-k8s-gray">Inactive</span>
+                        )}
+                        {config.is_default && (
+                          <span className="ml-2 inline-block px-2 py-1 rounded text-xs bg-k8s-blue/20 text-k8s-blue">
+                            Default
+                          </span>
                         )}
                       </td>
                       <td className="py-4 px-6">
-                        {config.test_status === 'success' ? (
-                          <div className="flex items-center gap-2 text-k8s-green">
+                        {config.test_status === 'passed' ? (
+                          <span className="inline-flex items-center gap-1 text-k8s-green">
                             <CheckCircle className="w-4 h-4" />
-                            <span className="text-sm">Connected</span>
-                          </div>
+                            Passed
+                          </span>
                         ) : config.test_status === 'failed' ? (
-                          <div className="flex items-center gap-2 text-k8s-red">
+                          <span className="inline-flex items-center gap-1 text-k8s-red">
                             <XCircle className="w-4 h-4" />
-                            <span className="text-sm">Failed</span>
-                          </div>
-                        ) : config.test_status === 'error' ? (
-                          <div className="flex items-center gap-2 text-k8s-orange">
-                            <AlertCircle className="w-4 h-4" />
-                            <span className="text-sm">Error</span>
-                          </div>
+                            Failed
+                          </span>
                         ) : (
-                          <div className="flex items-center gap-2 text-k8s-gray">
-                            <span className="text-sm">Untested</span>
-                          </div>
+                          <span className="text-k8s-gray">Untested</span>
                         )}
                       </td>
                       <td className="py-4 px-6 text-sm text-k8s-gray">
@@ -636,37 +494,39 @@ const KubeconfigManagement = ({ user, onError, onHealthUpdate }) => {
                       <td className="py-4 px-6">
                         <div className="flex items-center gap-2">
                           <button
-                            onClick={() => handleActivateKubeconfig(config.id)}
-                            disabled={config.is_active || loading.kubeconfigAction}
-                            className="k8s-button-sm p-2 hover:bg-k8s-green/20"
-                            title="Activate"
+                            onClick={() => handleTestKubeconfig(config.id)}
+                            disabled={loading.kubeconfigAction}
+                            className="p-2 rounded hover:bg-k8s-blue/20 text-k8s-gray hover:text-white transition-colors"
+                            title="Test connection"
                           >
                             <PlayCircle className="w-4 h-4" />
                           </button>
                           <button
                             onClick={() => handleEditKubeconfig(config)}
                             disabled={loading.kubeconfigAction}
-                            className="k8s-button-sm p-2 hover:bg-k8s-blue/20"
+                            className="p-2 rounded hover:bg-k8s-blue/20 text-k8s-gray hover:text-white transition-colors"
                             title="Edit"
                           >
                             <Edit2 className="w-4 h-4" />
                           </button>
                           <button
-                            onClick={() => handleTestKubeconfig(config.id)}
-                            disabled={loading.kubeconfigAction}
-                            className="k8s-button-sm p-2 hover:bg-k8s-cyan/20"
-                            title="Test Connection"
-                          >
-                            <CheckCircle className="w-4 h-4" />
-                          </button>
-                          <button
                             onClick={() => handleDeleteKubeconfig(config.id)}
                             disabled={loading.kubeconfigAction}
-                            className="k8s-button-sm p-2 hover:bg-red-500/20"
+                            className="p-2 rounded hover:bg-red-500/20 text-k8s-gray hover:text-red-400 transition-colors"
                             title="Delete"
                           >
-                            <Trash2 className="w-4 h-4 text-red-400" />
+                            <Trash2 className="w-4 h-4" />
                           </button>
+                          {!config.is_active && (
+                            <button
+                              onClick={() => handleActivateKubeconfig(config.id)}
+                              disabled={loading.kubeconfigAction}
+                              className="p-2 rounded hover:bg-k8s-green/20 text-k8s-gray hover:text-k8s-green transition-colors"
+                              title="Activate"
+                            >
+                              <PlayCircle className="w-4 h-4" />
+                            </button>
+                          )}
                         </div>
                       </td>
                     </tr>

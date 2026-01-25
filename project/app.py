@@ -1661,15 +1661,18 @@ def get_kubeconfigs():
 @app.route('/admin/kubeconfigs', methods=['POST'])
 @require_admin_auth
 def create_kubeconfig():
-    """Create new kubeconfig (admin only) - supports file and service account types"""
+    """Create new kubeconfig (admin only) - Service Account only"""
     try:
         data = request.get_json()
         
-        if not data or 'name' not in data or 'connection_type' not in data:
-            return jsonify({'error': 'Name and connection type are required'}), 400
+        if not data or 'name' not in data:
+            return jsonify({'error': 'Name is required'}), 400
         
         name = data['name'].strip()
-        connection_type = data.get('connection_type', 'file').strip()
+        cluster_url = data.get('cluster_url', '').strip()
+        token = data.get('sa_token', '').strip()
+        ca_cert = data.get('ca_certificate', '').strip()
+        namespace = data.get('namespace', '').strip()
         description = data.get('description', '').strip()
         is_default = data.get('is_default', False)
         created_by = data.get('created_by')  # Optional user ID
@@ -1677,45 +1680,19 @@ def create_kubeconfig():
         if not name:
             return jsonify({'error': 'Name cannot be empty'}), 400
         
-        if connection_type not in ['file', 'service_account']:
-            return jsonify({'error': 'Invalid connection type. Must be "file" or "service_account"'}), 400
+        if not cluster_url or not token:
+            return jsonify({'error': 'Cluster URL and token are required'}), 400
         
-        kubeconfig_id = None
-        
-        if connection_type == 'service_account':
-            # Service Account based config
-            cluster_url = data.get('cluster_url', '').strip()
-            token = data.get('sa_token', '').strip()
-            ca_cert = data.get('ca_certificate', '').strip()
-            namespace = data.get('namespace', '').strip()
-            
-            if not cluster_url or not token:
-                return jsonify({'error': 'Cluster URL and token are required for service account connection'}), 400
-            
-            kubeconfig_id = app.db.create_sa_kubeconfig(
-                name=name,
-                cluster_url=cluster_url,
-                token=token,
-                ca_cert=ca_cert if ca_cert else None,
-                namespace=namespace if namespace else None,
-                description=description,
-                created_by=created_by,
-                is_default=is_default
-            )
-        else:
-            # File based config (existing logic)
-            path = data.get('path', '').strip()
-            
-            if not path:
-                return jsonify({'error': 'Path is required for file-based connection'}), 400
-            
-            kubeconfig_id = app.db.create_kubeconfig(
-                name=name,
-                path=path,
-                description=description,
-                created_by=created_by,
-                is_default=is_default
-            )
+        kubeconfig_id = app.db.create_kubeconfig(
+            name=name,
+            cluster_url=cluster_url,
+            token=token,
+            ca_cert=ca_cert if ca_cert else None,
+            namespace=namespace if namespace else None,
+            description=description if description else None,
+            created_by=created_by,
+            is_default=is_default
+        )
         
         if kubeconfig_id:
             # Clear health cache as new kubeconfig might affect cluster connectivity
@@ -1752,49 +1729,31 @@ def get_kubeconfig(kubeconfig_id):
 @app.route('/admin/kubeconfigs/<int:kubeconfig_id>', methods=['PUT'])
 @require_admin_auth
 def update_kubeconfig(kubeconfig_id):
-    """Update a kubeconfig (admin only) - supports both file and SA types"""
+    """Update a kubeconfig (admin only) - Service Account only"""
     try:
-        # Get existing config to check type
-        existing_config = app.db.get_kubeconfig(kubeconfig_id)
-        if not existing_config:
-            return jsonify({'error': 'Kubeconfig not found'}), 404
-        
         data = request.get_json()
         
         if not data:
             return jsonify({'error': 'No data provided'}), 400
         
-        success = False
-        connection_type = existing_config.get('connection_type', 'file')
+        cluster_url = data.get('cluster_url')
+        token = data.get('sa_token')
+        ca_cert = data.get('ca_certificate')
+        namespace = data.get('namespace')
+        name = data.get('name')
+        description = data.get('description')
+        is_default = data.get('is_default')
         
-        if connection_type == 'service_account':
-            # Update Service Account based config
-            cluster_url = data.get('cluster_url')
-            token = data.get('sa_token')
-            ca_cert = data.get('ca_certificate')
-            namespace = data.get('namespace')
-            
-            success = app.db.update_sa_kubeconfig(
-                kubeconfig_id=kubeconfig_id,
-                cluster_url=cluster_url,
-                token=token,
-                ca_cert=ca_cert,
-                namespace=namespace
-            )
-        else:
-            # Update File based config (existing logic)
-            name = data.get('name')
-            path = data.get('path')
-            description = data.get('description')
-            is_default = data.get('is_default')
-            
-            success = app.db.update_kubeconfig(
-                kubeconfig_id=kubeconfig_id,
-                name=name,
-                path=path,
-                description=description,
-                is_default=is_default
-            )
+        success = app.db.update_kubeconfig(
+            kubeconfig_id=kubeconfig_id,
+            name=name,
+            cluster_url=cluster_url,
+            token=token,
+            ca_cert=ca_cert,
+            namespace=namespace,
+            description=description,
+            is_default=is_default
+        )
         
         if success:
             # Clear health cache as kubeconfig changes might affect cluster connectivity
