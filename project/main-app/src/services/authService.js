@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000';
+const API_BASE_URL = process.env.REACT_APP_API_URL || '';
 
 class AuthService {
   constructor() {
@@ -16,7 +16,7 @@ class AuthService {
 
   async signup(userData) {
     try {
-      const response = await this.api.post('/auth/signup', {
+      const response = await this.api.post('/api/auth/signup', {
         username: userData.username,
         email: userData.email,
         password: userData.password,
@@ -39,7 +39,7 @@ class AuthService {
 
   async login(username, password) {
     try {
-      const response = await this.api.post('/auth/login', {
+      const response = await this.api.post('/api/auth/login', {
         username,
         password,
       });
@@ -68,7 +68,7 @@ class AuthService {
   async logout() {
     try {
       // Call logout endpoint - cookie will be cleared by server
-      await this.api.post('/auth/logout');
+      await this.api.post('/api/auth/logout');
       
       // Clear local user data
       localStorage.removeItem('userData');

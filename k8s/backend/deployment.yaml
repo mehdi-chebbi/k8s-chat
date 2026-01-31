@@ -22,17 +22,28 @@ spec:
         - containerPort: 5000
           name: http
         env:
-        - name: DATABASE_URL
+        - name: DB_HOST
+          value: "kubemate-postgres"
+        - name: DB_PORT
+          value: "5432"
+        - name: DB_NAME
+          value: "kubemate"
+        - name: DB_USER
           valueFrom:
-            configMapKeyRef:
-              name: kubemate-config
-              key: database-url
+            secretKeyRef:
+              name: kubemate-secrets
+              key: db-user
+        - name: DB_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: kubemate-secrets
+              key: db-password
         - name: FLASK_SECRET_KEY
           valueFrom:
             secretKeyRef:
               name: kubemate-secrets
               key: flask-secret-key
-        - name: ENCRYPTION_KEY
+        - name: K8S_BOT_ENCRYPTION_KEY
           valueFrom:
             secretKeyRef:
               name: kubemate-secrets

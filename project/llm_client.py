@@ -113,7 +113,7 @@ class OpenRouterProvider(LLMProvider):
             
             payload = {
                 "model": self.model,
-                "max_tokens": 1500,
+                "max_tokens": 15000,
                 "messages": messages,
                 "temperature": 0.7,
                 "stream": True
@@ -124,7 +124,7 @@ class OpenRouterProvider(LLMProvider):
                 headers=self.headers,
                 json=payload,
                 stream=True,
-                timeout=60
+                timeout=600
             )
             
             if response.status_code == 200:
@@ -204,7 +204,7 @@ class OpenRouterProvider(LLMProvider):
             # Prepare request payload for streaming
             payload = {
                 "model": self.model,
-                "max_tokens": 2000,
+                "max_tokens": 20000,
                 "messages": messages,
                 "temperature": 0.7,
                 "stream": True
@@ -218,7 +218,7 @@ class OpenRouterProvider(LLMProvider):
                 headers=self.headers,
                 json=payload,
                 stream=True,
-                timeout=60
+                timeout=600
             )
             
             if response.status_code == 200:
@@ -286,7 +286,7 @@ class OpenRouterProvider(LLMProvider):
             # Prepare request payload
             payload = {
                 "model": self.model,
-                "max_tokens": 2000,
+                "max_tokens": 20000,
                 "messages": messages,
                 "temperature": 0.7
             }
@@ -298,7 +298,7 @@ class OpenRouterProvider(LLMProvider):
                 self.api_url,
                 headers=self.headers,
                 json=payload,
-                timeout=30
+                timeout=300
             )
             
             if response.status_code == 200:
@@ -378,7 +378,7 @@ NEVER use placeholders! If you don't have a specific pod name, use general comma
             
             payload = {
                 "model": self.model,
-                "max_tokens": 500,
+                "max_tokens": 10000,
                 "messages": messages,
                 "temperature": 0.3
             }
@@ -387,7 +387,7 @@ NEVER use placeholders! If you don't have a specific pod name, use general comma
                 self.api_url,
                 headers=self.headers,
                 json=payload,
-                timeout=15
+                timeout=300
             )
             
             if response.status_code == 200:
@@ -443,7 +443,7 @@ Be honest about what you can and cannot determine from the outputs."""
             
             payload = {
                 "model": self.model,
-                "max_tokens": 1500,
+                "max_tokens": 10000,
                 "messages": messages,
                 "temperature": 0.7
             }
@@ -452,7 +452,7 @@ Be honest about what you can and cannot determine from the outputs."""
                 self.api_url,
                 headers=self.headers,
                 json=payload,
-                timeout=30
+                timeout=300
             )
             
             if response.status_code == 200:
@@ -517,7 +517,7 @@ NEVER use placeholders! Use actual names from command outputs or general flags."
 
             payload = {
                 "model": self.model,
-                "max_tokens": 500,
+                "max_tokens": 10000,
                 "messages": messages,
                 "temperature": 0.5
             }
@@ -526,7 +526,7 @@ NEVER use placeholders! Use actual names from command outputs or general flags."
                 self.api_url,
                 headers=self.headers,
                 json=payload,
-                timeout=20
+                timeout=300
             )
 
             if response.status_code == 200:
@@ -631,7 +631,7 @@ Response: {{"type": "investigation", "response": "I'll show you all the pods in 
 
             payload = {
                 "model": self.model,
-                "max_tokens": 800,
+                "max_tokens": 10000,
                 "messages": messages,
                 "temperature": 0.7
             }
@@ -640,7 +640,7 @@ Response: {{"type": "investigation", "response": "I'll show you all the pods in 
                 self.api_url,
                 headers=self.headers,
                 json=payload,
-                timeout=20
+                timeout=300
             )
 
             if response.status_code == 200:
@@ -711,7 +711,7 @@ Response: {{"type": "investigation", "response": "I'll show you all the pods in 
         try:
             test_payload = {
                 "model": self.model,
-                "max_tokens": 10,
+                "max_tokens": 10000,
                 "messages": [{"role": "user", "content": "test"}],
                 "temperature": 0.1
             }
@@ -720,7 +720,7 @@ Response: {{"type": "investigation", "response": "I'll show you all the pods in 
                 self.api_url,
                 headers=self.headers,
                 json=test_payload,
-                timeout=10
+                timeout=100
             )
             
             if response.status_code == 200:
@@ -1020,7 +1020,7 @@ class LocalLLMProvider(LLMProvider):
             
             payload = {
                 "model": self.model,
-                "max_tokens": 1500,
+                "max_tokens": 10000,
                 "messages": messages,
                 "temperature": 0.7,
                 "stream": True
@@ -1031,7 +1031,7 @@ class LocalLLMProvider(LLMProvider):
                 headers=self.headers,
                 json=payload,
                 stream=True,
-                timeout=60
+                timeout=600
             )
             
             if response.status_code == 200:
@@ -1108,7 +1108,7 @@ class LocalLLMProvider(LLMProvider):
             # Prepare request payload for streaming
             payload = {
                 "model": self.model,
-                "max_tokens": 2000,
+                "max_tokens": 10000,
                 "messages": messages,
                 "temperature": 0.7,
                 "stream": True
@@ -1122,7 +1122,7 @@ class LocalLLMProvider(LLMProvider):
                 headers=self.headers,
                 json=payload,
                 stream=True,
-                timeout=60
+                timeout=600
             )
             
             if response.status_code == 200:
@@ -1190,7 +1190,7 @@ class LocalLLMProvider(LLMProvider):
             # Prepare request payload
             payload = {
                 "model": self.model,
-                "max_tokens": 2000,
+                "max_tokens": 10000,
                 "messages": messages,
                 "temperature": 0.7
             }
@@ -1202,7 +1202,7 @@ class LocalLLMProvider(LLMProvider):
                 self.api_url,
                 headers=self.headers,
                 json=payload,
-                timeout=30
+                timeout=300
             )
             
             if response.status_code == 200:
@@ -1226,7 +1226,7 @@ class LocalLLMProvider(LLMProvider):
         try:
             test_payload = {
                 "model": self.model,
-                "max_tokens": 10,
+                "max_tokens": 10000,
                 "messages": [{"role": "user", "content": "test"}],
                 "temperature": 0.1
             }
@@ -1235,7 +1235,7 @@ class LocalLLMProvider(LLMProvider):
                 self.api_url,
                 headers=self.headers,
                 json=test_payload,
-                timeout=10
+                timeout=100
             )
             
             if response.status_code == 200:
@@ -1333,7 +1333,7 @@ NEVER use placeholders! If you don't have a specific pod name, use general comma
             
             payload = {
                 "model": self.model,
-                "max_tokens": 500,
+                "max_tokens": 10000,
                 "messages": messages,
                 "temperature": 0.3
             }
@@ -1342,7 +1342,7 @@ NEVER use placeholders! If you don't have a specific pod name, use general comma
                 self.api_url,
                 headers=self.headers,
                 json=payload,
-                timeout=15
+                timeout=300
             )
             
             if response.status_code == 200:
@@ -1398,7 +1398,7 @@ Be honest about what you can and cannot determine from outputs."""
             
             payload = {
                 "model": self.model,
-                "max_tokens": 1500,
+                "max_tokens": 10000,
                 "messages": messages,
                 "temperature": 0.7
             }
@@ -1407,7 +1407,7 @@ Be honest about what you can and cannot determine from outputs."""
                 self.api_url,
                 headers=self.headers,
                 json=payload,
-                timeout=30
+                timeout=300
             )
             
             if response.status_code == 200:
@@ -1472,7 +1472,7 @@ NEVER use placeholders! Use actual names from command outputs or general flags."
             
             payload = {
                 "model": self.model,
-                "max_tokens": 500,
+                "max_tokens": 10000,
                 "messages": messages,
                 "temperature": 0.5
             }
@@ -1481,7 +1481,7 @@ NEVER use placeholders! Use actual names from command outputs or general flags."
                 self.api_url,
                 headers=self.headers,
                 json=payload,
-                timeout=20
+                timeout=300
             )
             
             if response.status_code == 200:
