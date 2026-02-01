@@ -1,0 +1,88 @@
+apiVersion: v2
+name: kubemate
+description: |
+  Kubemate is an AI-powered Kubernetes assistant that combines natural language understanding,
+  interactive visualization, and deep cluster inspection into one powerful tool.
+
+  Think of it as: ChatGPT meets kubectl meets K8s Dashboard - but safer, smarter, and easier to use.
+
+  Features:
+  - AI Chat Assistant: Talk to your cluster in plain English
+  - Cluster Topology Viewer: Interactive 2D visualization of nodes, pods, and services
+  - Pod Browser: Inspect pods, view logs, and browse files without kubectl
+  - Multi-cluster support with encrypted kubeconfig storage
+  - Read-only Kubernetes access for enhanced security
+
+
+type: application
+
+version: 0.1.0
+
+appVersion: "1.0.0"
+
+kubeVersion: ">=1.25.0-0"
+
+keywords:
+  - kubernetes
+  - ai
+  - chatbot
+  - monitoring
+  - visualization
+  - operations
+  - devops
+  - assistant
+  - llm
+  - cluster-management
+
+maintainers:
+  - name: Mehdi Chebbi
+    email: mehdi.chebbi@example.com
+    url: https://github.com/mehdi-chebbi
+
+home: https://github.com/mehdi-chebbi/k8s-chat
+
+sources:
+  - https://github.com/mehdi-chebbi/k8s-chat
+
+icon: https://raw.githubusercontent.com/mehdi-chebbi/k8s-chat/helm/docs/logo.png
+
+annotations:
+  category: "Infrastructure"
+
+  displayName: "Kubemate - AI Kubernetes Assistant"
+
+  licenses: MIT
+
+  maturity: "alpha"
+
+  changes: |
+    - Initial release
+    - AI chat assistant with natural language processing
+    - Interactive cluster topology viewer
+    - Pod browser with logs and file inspection
+    - Multi-cluster support
+    - Encrypted kubeconfig storage
+
+  support: |
+    - Documentation: https://github.com/mehdi-chebbi/k8s-chat#readme
+    - Issues: https://github.com/mehdi-chebbi/k8s-chat/issues
+
+  features: |
+    - Read-only kubectl access (secure by default)
+    - Encrypted credential storage (AES-128 + HMAC)
+    - Role-based access control (Admin/User)
+    - Multi-cluster support
+    - Real-time streaming responses
+    - Interactive SVG visualizations
+
+  prerequisites: |
+    - Kubernetes cluster (v1.25+)
+    - kubectl configured with cluster access
+    - OpenRouter API key (for AI features)
+    - Persistent storage for PostgreSQL
+
+  compatibility: |
+    - Tested on Kubernetes v1.25 - v1.29
+    - Requires PostgreSQL 12+
+    - Works with OpenShift 4.10+
+    - Compatible with any cloud provider (AWS, GCP, Azure)
