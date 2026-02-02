@@ -1,0 +1,142 @@
+apiVersion: v1
+entries:
+  kubemate:
+  - annotations:
+      category: Infrastructure
+      changes: |
+        - Initial release
+        - AI chat assistant with natural language processing
+        - Interactive cluster topology viewer
+        - Pod browser with logs and file inspection
+        - Multi-cluster support
+        - Encrypted kubeconfig storage
+      compatibility: |
+        - Tested on Kubernetes v1.25 - v1.29
+        - Requires PostgreSQL 12+
+        - Works with OpenShift 4.10+
+        - Compatible with any cloud provider (AWS, GCP, Azure)
+      displayName: Kubemate - AI Kubernetes Assistant
+      features: |
+        - Read-only kubectl access (secure by default)
+        - Encrypted credential storage (AES-128 + HMAC)
+        - Role-based access control (Admin/User)
+        - Multi-cluster support
+        - Real-time streaming responses
+        - Interactive SVG visualizations
+      licenses: MIT
+      maturity: alpha
+      prerequisites: |
+        - Kubernetes cluster (v1.25+)
+        - kubectl configured with cluster access
+        - OpenRouter API key (for AI features)
+        - Persistent storage for PostgreSQL
+      support: |
+        - Documentation: https://github.com/mehdi-chebbi/k8s-chat#readme
+        - Issues: https://github.com/mehdi-chebbi/k8s-chat/issues
+    apiVersion: v2
+    appVersion: 1.0.0
+    created: "2026-02-02T23:15:13.4097095+01:00"
+    description: 'Kubemate is an AI-powered Kubernetes assistant that combines natural
+      language understanding, interactive visualization, and deep cluster inspection
+      into one powerful tool.  Think of it as: ChatGPT meets kubectl meets K8s Dashboard
+      - but safer, smarter, and easier to use.  Features: - AI Chat Assistant: Talk
+      to your cluster in plain English - Cluster Topology Viewer: Interactive 2D visualization
+      of nodes, pods, and services - Pod Browser: Inspect pods, view logs, and browse
+      files without kubectl - Multi-cluster support with encrypted kubeconfig storage
+      - Read-only Kubernetes access for enhanced security '
+    digest: 353816ab223ad72cbcefede938cf27afcffa759032bafa3f0434ac24a7829187
+    home: https://github.com/mehdi-chebbi/k8s-chat
+    icon: https://raw.githubusercontent.com/mehdi-chebbi/k8s-chat/helm/docs/logo.png
+    keywords:
+    - kubernetes
+    - ai
+    - chatbot
+    - monitoring
+    - visualization
+    - operations
+    - devops
+    - assistant
+    - llm
+    - cluster-management
+    kubeVersion: '>=1.25.0-0'
+    maintainers:
+    - email: mehdichebbi111@gmail.com
+      name: Mehdi Chebbi
+      url: https://github.com/mehdi-chebbi
+    name: kubemate
+    sources:
+    - https://github.com/mehdi-chebbi/k8s-chat
+    type: application
+    urls:
+    - https://github.com/mehdi-chebbi/k8s-chat/releases/download/kubemate-1.0.0/kubemate-1.0.0.tgz
+    version: 1.0.0
+  - annotations:
+      category: Infrastructure
+      changes: |
+        - Initial release
+        - AI chat assistant with natural language processing
+        - Interactive cluster topology viewer
+        - Pod browser with logs and file inspection
+        - Multi-cluster support
+        - Encrypted kubeconfig storage
+      compatibility: |
+        - Tested on Kubernetes v1.25 - v1.29
+        - Requires PostgreSQL 12+
+        - Works with OpenShift 4.10+
+        - Compatible with any cloud provider (AWS, GCP, Azure)
+      displayName: Kubemate - AI Kubernetes Assistant
+      features: |
+        - Read-only kubectl access (secure by default)
+        - Encrypted credential storage (AES-128 + HMAC)
+        - Role-based access control (Admin/User)
+        - Multi-cluster support
+        - Real-time streaming responses
+        - Interactive SVG visualizations
+      licenses: MIT
+      maturity: alpha
+      prerequisites: |
+        - Kubernetes cluster (v1.25+)
+        - kubectl configured with cluster access
+        - OpenRouter API key (for AI features)
+        - Persistent storage for PostgreSQL
+      support: |
+        - Documentation: https://github.com/mehdi-chebbi/k8s-chat#readme
+        - Issues: https://github.com/mehdi-chebbi/k8s-chat/issues
+    apiVersion: v2
+    appVersion: 1.0.0
+    created: "2026-02-02T23:15:13.4091854+01:00"
+    description: 'Kubemate is an AI-powered Kubernetes assistant that combines natural
+      language understanding, interactive visualization, and deep cluster inspection
+      into one powerful tool.  Think of it as: ChatGPT meets kubectl meets K8s Dashboard
+      - but safer, smarter, and easier to use.  Features: - AI Chat Assistant: Talk
+      to your cluster in plain English - Cluster Topology Viewer: Interactive 2D visualization
+      of nodes, pods, and services - Pod Browser: Inspect pods, view logs, and browse
+      files without kubectl - Multi-cluster support with encrypted kubeconfig storage
+      - Read-only Kubernetes access for enhanced security '
+    digest: a80161fa7b47f06f22f515549adf571bd5fbe16c3299d55b83db01197d91b475
+    home: https://github.com/mehdi-chebbi/k8s-chat
+    icon: https://raw.githubusercontent.com/mehdi-chebbi/k8s-chat/helm/docs/logo.png
+    keywords:
+    - kubernetes
+    - ai
+    - chatbot
+    - monitoring
+    - visualization
+    - operations
+    - devops
+    - assistant
+    - llm
+    - cluster-management
+    kubeVersion: '>=1.25.0-0'
+    maintainers:
+    - email: mehdichebbi111@gmail.com
+      name: Mehdi Chebbi
+      url: https://github.com/mehdi-chebbi
+    name: kubemate
+    sources:
+    - https://github.com/mehdi-chebbi/k8s-chat
+    type: application
+    urls:
+    - https://github.com/mehdi-chebbi/k8s-chat/releases/download/kubemate-1.0.0/kubemate-0.1.0.tgz
+    version: 0.1.0
+generated: "2026-02-02T23:15:13.408603+01:00"
