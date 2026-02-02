@@ -7,19 +7,6 @@ This document outlines the security policies and best practices for the **Kubema
 - Overview
 - Code of Conduct
 - Reporting Vulnerabilities
-- Security Best Practices
-- Dependency Management
-- Data Protection
-- API Security
-- Kubernetes Security
-- Deployment Security
-- Security Audits
-- Testing
-- Legal & Compliance
-- Contact
-- Version History
-- Additional Resources
-- Acknowledgments
 
 ---
 
@@ -36,7 +23,7 @@ If you discover a security vulnerability, please **DO NOT**:
 ### Responsible Disclosure
 If you find a security vulnerability, please follow our responsible disclosure process:
 
-- **Email us privately at:** `security@[your-email-domain]`
+- **Email us privately at:** `mehdichebbi111@gmail.com`
 - Include a detailed description of the vulnerability
 - Include steps to reproduce
 - Include potential impact
