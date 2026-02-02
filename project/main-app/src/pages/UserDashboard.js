@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { LogOut, Cpu, MessageSquare, Send, Loader2, Plus, Edit2, Trash2, ChevronLeft, Network, Server, Key } from 'lucide-react';
+import { LogOut, Cpu, MessageSquare, Send, Loader2, Plus, Edit2, Trash2, ChevronLeft, Network, Server, Key, Sparkles, CheckCircle, Clock } from 'lucide-react';
 import { apiService } from '../services/apiService';
 import ChangePasswordModal from '../components/ChangePasswordModal';
 
@@ -17,11 +17,11 @@ const UserDashboard = ({ user, onLogout }) => {
   const [error, setError] = useState('');
   const [sessions, setSessions] = useState([]);
   const [currentSessionId, setCurrentSessionId] = useState(null);
-  const [tempSessionId, setTempSessionId] = useState(null); // For new unsaved sessions
+  const [tempSessionId, setTempSessionId] = useState(null);
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [editingSessionId, setEditingSessionId] = useState(null);
   const [editingTitle, setEditingTitle] = useState('');
-  const [streamingStatus, setStreamingStatus] = useState(null); // Track streaming state
+  const [streamingStatus, setStreamingStatus] = useState(null);
   const [showChangePasswordModal, setShowChangePasswordModal] = useState(false);
   const messagesEndRef = useRef(null);
 
@@ -35,7 +35,6 @@ const UserDashboard = ({ user, onLogout }) => {
       setGreeting('Good evening');
     }
 
-    // Load user sessions
     loadSessions();
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -49,11 +48,9 @@ const UserDashboard = ({ user, onLogout }) => {
       if (response.success) {
         setSessions(response.sessions);
 
-        // If no sessions, create one
         if (response.sessions.length === 0) {
           await createNewSession();
         } else {
-          // Load most recent session
           const mostRecent = response.sessions[0];
           setCurrentSessionId(mostRecent.session_id);
           loadSessionHistory(mostRecent.session_id);
@@ -83,7 +80,6 @@ const UserDashboard = ({ user, onLogout }) => {
   };
 
   const createNewSession = () => {
-    // Create a temporary session ID (only save to database when user sends first message)
     const tempId = `temp_${Date.now()}`;
     setTempSessionId(tempId);
     setCurrentSessionId(tempId);
@@ -94,7 +90,7 @@ const UserDashboard = ({ user, onLogout }) => {
       created_at: new Date().toISOString(),
       last_activity: new Date().toISOString(),
       message_count: 0,
-      is_temp: true // Mark as temporary
+      is_temp: true
     }, ...prev]);
   };
 
@@ -106,19 +102,16 @@ const UserDashboard = ({ user, onLogout }) => {
   const deleteSession = async (sessionId, e) => {
     e.stopPropagation();
 
-    // Don't allow deleting if it would leave no sessions
     const nonTempSessions = sessions.filter(s => !s.is_temp);
     if (nonTempSessions.length <= 1 && !sessions.find(s => s.session_id === sessionId && s.is_temp)) {
       setError('Cannot delete last session');
       return;
     }
 
-    // If it's a temporary session, just remove it from state
     if (sessions.find(s => s.session_id === sessionId && s.is_temp)) {
       setSessions(prev => prev.filter(s => s.session_id !== sessionId));
 
       if (currentSessionId === sessionId) {
-        // Switch to most recent non-temp session
         const remaining = sessions.filter(s => s.session_id !== sessionId && !s.is_temp);
         if (remaining.length > 0) {
           switchSession(remaining[0].session_id);
@@ -135,7 +128,6 @@ const UserDashboard = ({ user, onLogout }) => {
         setSessions(prev => prev.filter(s => s.session_id !== sessionId));
 
         if (currentSessionId === sessionId) {
-          // Switch to most recent session
           const remaining = sessions.filter(s => s.session_id !== sessionId);
           if (remaining.length > 0) {
             switchSession(remaining[0].session_id);
@@ -160,7 +152,6 @@ const UserDashboard = ({ user, onLogout }) => {
     e.stopPropagation();
 
     if (editingTitle.trim()) {
-      // Don't allow editing temporary sessions (they should be saved first)
       const session = sessions.find(s => s.session_id === sessionId);
       if (session && session.is_temp) {
         setError('Send a message first to save this chat');
@@ -197,7 +188,6 @@ const UserDashboard = ({ user, onLogout }) => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
 
-  // Helper function to parse SSE events
   const parseSSEEvent = (line) => {
     if (!line.startsWith('data: ')) {
       return null;
@@ -211,7 +201,6 @@ const UserDashboard = ({ user, onLogout }) => {
     }
   };
 
-  // Updated handleSendMessage with streaming support
 const handleSendMessage = async (e) => {
   e.preventDefault();
 
@@ -219,7 +208,6 @@ const handleSendMessage = async (e) => {
     return;
   }
 
-  // If this is a temporary session, save it first
   let actualSessionId = currentSessionId;
   if (tempSessionId && currentSessionId === tempSessionId) {
     try {
@@ -229,7 +217,6 @@ const handleSendMessage = async (e) => {
         setCurrentSessionId(actualSessionId);
         setTempSessionId(null);
 
-        // Replace temporary session with real session in sessions list
         setSessions(prev => prev.map(s =>
           s.session_id === tempSessionId
             ? {
@@ -263,7 +250,6 @@ const handleSendMessage = async (e) => {
   setError('');
   setStreamingStatus('connecting');
 
-  // Create placeholder for assistant message that will be updated
   const assistantMessageId = Date.now() + 1;
   const assistantMessage = {
     id: assistantMessageId,
@@ -282,7 +268,7 @@ const handleSendMessage = async (e) => {
       headers: {
         'Content-Type': 'application/json',
       },
-      credentials: 'include', // Send HttpOnly cookies
+      credentials: 'include',
       body: JSON.stringify({
         message: messageText,
         session_id: actualSessionId
@@ -306,12 +292,10 @@ const handleSendMessage = async (e) => {
         break;
       }
 
-      // Decode chunk and add to buffer
       buffer += decoder.decode(value, { stream: true });
 
-      // Split by double newlines to get complete events
       const lines = buffer.split('\n\n');
-      buffer = lines.pop() || ''; // Keep incomplete event in buffer
+      buffer = lines.pop() || '';
 
       for (const line of lines) {
         const trimmedLine = line.trim();
@@ -324,10 +308,8 @@ const handleSendMessage = async (e) => {
           continue;
         }
 
-        // Handle different event types
         switch (event.type) {
           case 'metadata':
-            // Update streaming status based on response type
             if (event.response_type === 'investigation') {
               setStreamingStatus('investigating');
             } else {
@@ -336,7 +318,6 @@ const handleSendMessage = async (e) => {
             break;
 
           case 'content':
-            // Append content chunk to assistant message
             setMessages(prev => prev.map(msg =>
               msg.id === assistantMessageId
                 ? { ...msg, content: msg.content + event.content }
@@ -387,7 +368,6 @@ const handleSendMessage = async (e) => {
           case 'done':
             setStreamingStatus('done');
             executedCommands = event.commands_executed || [];
-            // Mark message as complete
             setMessages(prev => prev.map(msg =>
               msg.id === assistantMessageId
                 ? { ...msg, isStreaming: false }
@@ -401,7 +381,6 @@ const handleSendMessage = async (e) => {
       }
     }
 
-    // Update session after streaming is complete
     const sessionMessages = messages.filter(m => m.role === 'user');
     if (sessionMessages.length === 0) {
       const newTitle = messageText.substring(0, 30) + (messageText.length > 30 ? '...' : '');
@@ -436,6 +415,7 @@ const handleSendMessage = async (e) => {
     setStreamingStatus(null);
   }
 };
+
   const formatDate = (dateString) => {
     const date = new Date(dateString);
     const now = new Date();
@@ -448,14 +428,14 @@ const handleSendMessage = async (e) => {
   };
 
   return (
-    <div className="k8s-container min-h-screen flex">
+    <div className="k8s-container h-screen flex overflow-hidden">
       {/* Sidebar */}
-      <div className={`${sidebarOpen ? 'w-64' : 'w-0'} transition-all duration-300 bg-k8s-dark/50 border-r border-k8s-blue/20 flex flex-col fixed h-full z-10`}>
+      <div className={`${sidebarOpen ? 'w-64' : 'w-0'} transition-all duration-300 bg-k8s-dark/50 border-r border-k8s-blue/20 flex flex-col h-full z-10`}>
         {/* Sidebar Header */}
-        <div className="p-4 border-b border-k8s-blue/20">
+        <div className="p-3 border-b border-k8s-blue/20">
           <button
             onClick={createNewSession}
-            className="w-full k8s-button-primary flex items-center justify-center gap-2"
+            className="w-full k8s-button-primary flex items-center justify-center gap-2 text-sm py-2.5 shadow-lg shadow-k8s-blue/20 hover:shadow-k8s-blue/30 transition-all"
           >
             <Plus className="w-4 h-4" />
             New Chat
@@ -463,19 +443,19 @@ const handleSendMessage = async (e) => {
         </div>
 
         {/* Sessions List */}
-        <div className="flex-1 overflow-y-auto p-2">
+        <div className="flex-1 overflow-y-auto p-2 custom-scrollbar">
           {sessions.map((session) => (
             <div
               key={session.session_id}
               onClick={() => switchSession(session.session_id)}
-              className={`group relative p-3 rounded-lg cursor-pointer mb-2 transition-colors ${
+              className={`group relative p-2.5 rounded-lg cursor-pointer mb-1.5 transition-all duration-200 ${
                 currentSessionId === session.session_id
-                  ? 'bg-k8s-blue/20 border border-k8s-blue/40'
-                  : 'hover:bg-k8s-dark/30 border border-transparent'
+                  ? 'bg-k8s-blue/20 border border-k8s-blue/40 shadow-md'
+                  : 'hover:bg-k8s-dark/30 border border-transparent hover:border-k8s-blue/20'
               }`}
             >
               {editingSessionId === session.session_id ? (
-                <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+                <div className="flex items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
                   <input
                     type="text"
                     value={editingTitle}
@@ -487,47 +467,49 @@ const handleSendMessage = async (e) => {
                         cancelEditing(e);
                       }
                     }}
-                    className="flex-1 k8s-input text-sm"
+                    className="flex-1 k8s-input text-xs py-1"
                     autoFocus
                   />
                   <button
                     onClick={(e) => saveSessionTitle(session.session_id, e)}
-                    className="text-green-400 hover:text-green-300"
+                    className="text-green-400 hover:text-green-300 p-1"
                   >
-                    ✓
+                    <CheckCircle className="w-3.5 h-3.5" />
                   </button>
                   <button
                     onClick={(e) => cancelEditing(e)}
-                    className="text-red-400 hover:text-red-300"
+                    className="text-red-400 hover:text-red-300 p-1"
                   >
                     ✕
                   </button>
                 </div>
               ) : (
                 <>
-                  <div className="flex items-start justify-between">
+                  <div className="flex items-start justify-between gap-2">
                     <div className="flex-1 min-w-0">
-                      <h3 className="text-sm font-medium text-white truncate">
+                      <h3 className="text-xs font-semibold text-white truncate flex items-center gap-1.5">
+                        <MessageSquare className="w-3 h-3 text-k8s-cyan flex-shrink-0" />
                         {session.title}
                         {session.is_temp && (
-                          <span className="ml-2 text-xs text-k8s-gray italic">(unsaved)</span>
+                          <span className="text-xs text-k8s-gray/60 italic">(unsaved)</span>
                         )}
                       </h3>
-                      <p className="text-xs text-k8s-gray mt-1">
-                        {session.message_count || 0} messages • {formatDate(session.last_activity)}
+                      <p className="text-xs text-k8s-gray/70 mt-1 flex items-center gap-1">
+                        <Clock className="w-3 h-3" />
+                        {formatDate(session.last_activity)}
                       </p>
                     </div>
-                    <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
                       <button
                         onClick={(e) => startEditingSession(session.session_id, session.title, e)}
-                        className="p-1 text-k8s-gray hover:text-white transition-colors"
+                        className="p-1 text-k8s-gray hover:text-k8s-cyan hover:bg-k8s-blue/10 rounded transition-all"
                         disabled={session.is_temp}
                       >
                         <Edit2 className="w-3 h-3" />
                       </button>
                       <button
                         onClick={(e) => deleteSession(session.session_id, e)}
-                        className="p-1 text-k8s-gray hover:text-red-400 transition-colors"
+                        className="p-1 text-k8s-gray hover:text-red-400 hover:bg-red-500/10 rounded transition-all"
                       >
                         <Trash2 className="w-3 h-3" />
                       </button>
@@ -541,53 +523,58 @@ const handleSendMessage = async (e) => {
       </div>
 
       {/* Main Content */}
-      <div className={`flex-1 flex flex-col transition-all duration-300 ${sidebarOpen ? 'ml-64' : 'ml-0'}`}>
+      <div className={`flex-1 flex flex-col transition-all duration-300 h-full overflow-hidden`}>
         {/* Header */}
-        <div className="k8s-glass border-b border-white/10">
-          <div className="max-w-7xl mx-auto px-6 py-4">
+        <div className="k8s-glass border-b border-k8s-blue/20 flex-shrink-0">
+          <div className="px-4 py-3">
             <div className="flex items-center justify-between">
-              <div className="flex items-center gap-4">
+              <div className="flex items-center gap-3">
                 <button
                   onClick={() => setSidebarOpen(!sidebarOpen)}
-                  className="k8s-button-secondary p-2"
+                  className="k8s-button-secondary p-2 hover:scale-105 transition-transform"
                 >
-                  <ChevronLeft className={`w-4 h-4 transition-transform ${sidebarOpen ? 'rotate-180' : ''}`} />
+                  <ChevronLeft className={`w-4 h-4 transition-transform duration-300 ${sidebarOpen ? 'rotate-0' : 'rotate-180'}`} />
                 </button>
-                <Cpu className="w-8 h-8 text-k8s-blue" />
-                <div>
-                  <h1 className="text-2xl font-bold text-white">Kubernetes Assistant</h1>
-                  <p className="text-k8s-gray text-sm">
-                    {greeting}, {user.username}!
-                  </p>
+                <div className="flex items-center gap-2">
+                  <div className="relative">
+                    <Cpu className="w-7 h-7 text-k8s-cyan" />
+                    <Sparkles className="w-3 h-3 text-k8s-blue absolute -top-1 -right-1 animate-pulse" />
+                  </div>
+                  <div>
+                    <h1 className="text-lg font-bold text-white">Kubernetes Assistant</h1>
+                    <p className="text-k8s-gray text-xs">
+                      {greeting}, {user.username}!
+                    </p>
+                  </div>
                 </div>
               </div>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1.5">
                 <a
                   href="/topology"
-                  className="k8s-button-secondary flex items-center gap-2"
+                  className="k8s-button-secondary flex items-center gap-1.5 text-xs px-3 py-2 hover:scale-105 transition-transform"
                 >
-                  <Network className="w-4 h-4" />
+                  <Network className="w-3.5 h-3.5" />
                   Topology
                 </a>
                 <a
                   href="/pods"
-                  className="k8s-button-secondary flex items-center gap-2"
+                  className="k8s-button-secondary flex items-center gap-1.5 text-xs px-3 py-2 hover:scale-105 transition-transform"
                 >
-                  <Server className="w-4 h-4" />
-                  Pod Browser
+                  <Server className="w-3.5 h-3.5" />
+                  Pods
                 </a>
                 <button
                   onClick={() => setShowChangePasswordModal(true)}
-                  className="k8s-button-secondary flex items-center gap-2"
+                  className="k8s-button-secondary flex items-center gap-1.5 text-xs px-3 py-2 hover:scale-105 transition-transform"
                 >
-                  <Key className="w-4 h-4" />
-                  Change Password
+                  <Key className="w-3.5 h-3.5" />
+                  Password
                 </button>
                 <button
                   onClick={onLogout}
-                  className="k8s-button-secondary flex items-center gap-2"
+                  className="k8s-button-secondary flex items-center gap-1.5 text-xs px-3 py-2 hover:scale-105 transition-transform"
                 >
-                  <LogOut className="w-4 h-4" />
+                  <LogOut className="w-3.5 h-3.5" />
                   Logout
                 </button>
               </div>
@@ -595,47 +582,61 @@ const handleSendMessage = async (e) => {
           </div>
         </div>
 
-        <div className="flex-1 max-w-7xl mx-auto px-6 py-8 w-full">
-          {/* Chat Interface */}
-          <div className="k8s-card h-full flex flex-col">
-            {/* Chat Messages */}
-            <div className="flex-1 overflow-y-auto p-4 space-y-4 k8s-chat-scroll">
+        {/* Chat Container - Fixed height with sticky input */}
+        <div className="flex-1 flex flex-col overflow-hidden">
+          {/* Chat Messages - Scrollable */}
+          <div className="flex-1 overflow-y-auto px-6 py-4 custom-scrollbar">
+            <div className="space-y-3">
               {messages.length === 0 ? (
-                <div className="text-center py-8">
-                  <MessageSquare className="w-12 h-12 text-k8s-blue mx-auto mb-4 opacity-50" />
-                  <p className="text-k8s-gray">
-                    Start a conversation by asking about your Kubernetes cluster.
+                <div className="text-center py-12 animate-fadeIn">
+                  <div className="inline-flex p-4 bg-k8s-blue/10 rounded-2xl mb-4">
+                    <MessageSquare className="w-12 h-12 text-k8s-cyan opacity-50" />
+                  </div>
+                  <h3 className="text-xl font-bold text-white mb-2">Start a Conversation</h3>
+                  <p className="text-sm text-k8s-gray mb-4">
+                    Ask me anything about your Kubernetes cluster
                   </p>
-                  <p className="text-k8s-gray text-sm mt-2">
-                    Try: "Show me all pods" or "What's the status of my deployments?"
-                  </p>
+                  <div className="flex flex-wrap gap-2 justify-center mt-6">
+                    <div className="px-3 py-2 bg-k8s-blue/10 rounded-lg border border-k8s-blue/20 text-xs text-k8s-gray">
+                      💬 "Show me all pods"
+                    </div>
+                    <div className="px-3 py-2 bg-k8s-blue/10 rounded-lg border border-k8s-blue/20 text-xs text-k8s-gray">
+                      🔍 "Check deployment status"
+                    </div>
+                    <div className="px-3 py-2 bg-k8s-blue/10 rounded-lg border border-k8s-blue/20 text-xs text-k8s-gray">
+                      📊 "List all services"
+                    </div>
+                  </div>
                 </div>
               ) : (
                 messages.map((msg) => (
-                  <div key={msg.id} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                    <div className={`max-w-[80%] ${msg.role === 'user' ? 'order-2' : 'order-1'}`}>
-                      <div className={`px-4 py-3 rounded-lg ${
+                  <div key={msg.id} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'} animate-slideUp`}>
+                    <div className={`max-w-[75%] ${msg.role === 'user' ? 'order-2' : 'order-1'}`}>
+                      <div className={`px-4 py-3 rounded-xl transition-all duration-200 ${
                         msg.role === 'user'
-                          ? 'bg-k8s-blue text-white ml-4'
+                          ? 'bg-gradient-to-br from-k8s-blue to-k8s-cyan text-white ml-4 shadow-lg'
                           : msg.isError
-                            ? 'bg-red-500/20 text-red-400 mr-4 border border-red-500/30'
-                            : 'bg-k8s-dark/50 text-white mr-4 border border-k8s-blue/20'
+                            ? 'bg-red-500/10 text-red-400 mr-4 border border-red-500/30'
+                            : 'bg-k8s-dark/50 text-white mr-4 border border-k8s-blue/20 shadow-md'
                       }`}>
                         {msg.role === 'assistant' && (
-                          <div className="flex items-center gap-2 mb-2">
-                            <Cpu className="w-4 h-4 text-k8s-blue" />
-                            <span className="text-xs font-medium text-k8s-blue">K8s Assistant</span>
+                          <div className="flex items-center gap-2 mb-2 pb-2 border-b border-k8s-blue/20">
+                            <div className="p-1 bg-k8s-cyan/20 rounded">
+                              <Cpu className="w-3 h-3 text-k8s-cyan" />
+                            </div>
+                            <span className="text-xs font-semibold text-k8s-cyan">KubeMate</span>
                             {msg.isStreaming && (
-                              <span className="text-xs text-k8s-gray/60 animate-pulse">streaming...</span>
+                              <span className="text-xs text-k8s-gray/60 animate-pulse flex items-center gap-1">
+                                <Loader2 className="w-3 h-3 animate-spin" />
+                                thinking...
+                              </span>
                             )}
                           </div>
                         )}
                         <div className="text-sm">
                           {msg.role === 'user' ? (
-                            // User messages are plain text
                             msg.content
                           ) : (
-                            // Assistant messages are rendered as Markdown
                             <ReactMarkdown
                               components={{
                                 code({ node, inline, className, children, ...props }) {
@@ -645,26 +646,26 @@ const handleSendMessage = async (e) => {
                                       style={vscDarkPlus}
                                       language={match[1]}
                                       PreTag="div"
-                                      className="rounded-md my-2 text-sm"
+                                      className="rounded-lg my-2 text-xs"
                                       {...props}
                                     >
                                       {String(children).replace(/\n$/, '')}
                                     </SyntaxHighlighter>
                                   ) : (
-                                    <code className="bg-k8s-dark/70 px-1 py-0.5 rounded text-k8s-blue text-sm" {...props}>
+                                    <code className="bg-k8s-dark/70 px-1.5 py-0.5 rounded text-k8s-cyan text-xs font-mono" {...props}>
                                       {children}
                                     </code>
                                   );
                                 },
-                                h1: ({ children }) => <h1 className="text-xl font-bold text-white mt-4 mb-2">{children}</h1>,
-                                h2: ({ children }) => <h2 className="text-lg font-bold text-white mt-3 mb-2">{children}</h2>,
-                                h3: ({ children }) => <h3 className="text-md font-bold text-white mt-2 mb-1">{children}</h3>,
-                                p: ({ children }) => <p className="mb-2 text-white">{children}</p>,
-                                ul: ({ children }) => <ul className="list-disc pl-5 mb-2 space-y-1 text-white">{children}</ul>,
-                                ol: ({ children }) => <ol className="list-decimal pl-5 mb-2 space-y-1 text-white">{children}</ol>,
-                                li: ({ children }) => <li className="text-white">{children}</li>,
+                                h1: ({ children }) => <h1 className="text-lg font-bold text-white mt-3 mb-2">{children}</h1>,
+                                h2: ({ children }) => <h2 className="text-base font-bold text-white mt-2 mb-1.5">{children}</h2>,
+                                h3: ({ children }) => <h3 className="text-sm font-bold text-white mt-2 mb-1">{children}</h3>,
+                                p: ({ children }) => <p className="mb-2 text-white text-sm leading-relaxed">{children}</p>,
+                                ul: ({ children }) => <ul className="list-disc pl-4 mb-2 space-y-1 text-white text-sm">{children}</ul>,
+                                ol: ({ children }) => <ol className="list-decimal pl-4 mb-2 space-y-1 text-white text-sm">{children}</ol>,
+                                li: ({ children }) => <li className="text-white text-sm">{children}</li>,
                                 blockquote: ({ children }) => (
-                                  <blockquote className="border-l-4 border-k8s-blue/50 pl-4 py-1 my-2 italic text-white/80">
+                                  <blockquote className="border-l-4 border-k8s-cyan/50 pl-3 py-1 my-2 italic text-white/80 text-sm">
                                     {children}
                                   </blockquote>
                                 ),
@@ -676,7 +677,8 @@ const handleSendMessage = async (e) => {
                             </ReactMarkdown>
                           )}
                         </div>
-                        <div className="text-xs text-k8s-gray/60 mt-2">
+                        <div className="text-xs text-k8s-gray/60 mt-2 flex items-center gap-1">
+                          <Clock className="w-3 h-3" />
                           {new Date(msg.timestamp).toLocaleTimeString()}
                         </div>
                       </div>
@@ -687,16 +689,18 @@ const handleSendMessage = async (e) => {
 
               {/* Streaming Status Indicator */}
               {streamingStatus && typeof streamingStatus === 'object' && (
-                <div className="flex justify-start">
-                  <div className="bg-k8s-dark/50 text-white mr-4 border border-k8s-blue/20 px-4 py-3 rounded-lg max-w-[80%]">
-                    <div className="flex items-center gap-2 mb-2">
-                      <Cpu className="w-4 h-4 text-k8s-blue" />
-                      <span className="text-xs font-medium text-k8s-blue">K8s Assistant</span>
+                <div className="flex justify-start animate-fadeIn">
+                  <div className="bg-k8s-dark/50 text-white mr-4 border border-k8s-blue/20 px-4 py-3 rounded-xl max-w-[75%] shadow-md">
+                    <div className="flex items-center gap-2 mb-2 pb-2 border-b border-k8s-blue/20">
+                      <div className="p-1 bg-k8s-cyan/20 rounded">
+                        <Cpu className="w-3 h-3 text-k8s-cyan" />
+                      </div>
+                      <span className="text-xs font-semibold text-k8s-cyan">KubeMate</span>
                     </div>
                     <div className="flex items-center gap-2 text-sm">
-                      <Loader2 className="w-4 h-4 animate-k8s-spin" />
+                      <Loader2 className="w-4 h-4 animate-spin text-k8s-cyan" />
                       {streamingStatus.type === 'command_executing' && (
-                        <span>Running: <code className="bg-k8s-dark/70 px-2 py-1 rounded text-k8s-blue">{streamingStatus.command}</code></span>
+                        <span>Running: <code className="bg-k8s-dark/70 px-2 py-1 rounded text-k8s-cyan text-xs font-mono">{streamingStatus.command}</code></span>
                       )}
                       {streamingStatus.type === 'command_completed' && (
                         <span className={streamingStatus.success ? 'text-green-400' : 'text-red-400'}>
@@ -710,25 +714,27 @@ const handleSendMessage = async (e) => {
 
               <div ref={messagesEndRef} />
             </div>
+          </div>
 
-            {/* Chat Input */}
-            <div className="border-t border-k8s-blue/20 p-4">
-              <form onSubmit={handleSendMessage} className="flex gap-3">
+          {/* Chat Input - Sticky at bottom */}
+          <div className="flex-shrink-0 border-t border-k8s-blue/20 bg-k8s-dark/80 backdrop-blur-sm">
+            <div className="px-6 py-3">
+              <form onSubmit={handleSendMessage} className="flex gap-2">
                 <input
                   type="text"
                   value={message}
                   onChange={(e) => setMessage(e.target.value)}
                   placeholder="Ask about your Kubernetes cluster..."
-                  className="flex-1 k8s-input"
+                  className="flex-1 k8s-input text-sm py-2.5 transition-all duration-200 focus:scale-[1.01]"
                   disabled={isLoading}
                 />
                 <button
                   type="submit"
-                  className="k8s-button-primary px-6 py-3"
+                  className="k8s-button-primary px-5 py-2.5 shadow-lg shadow-k8s-blue/30 hover:shadow-k8s-blue/50 transition-all duration-300 hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
                   disabled={isLoading || !message.trim()}
                 >
                   {isLoading ? (
-                    <Loader2 className="w-4 h-4 animate-k8s-spin" />
+                    <Loader2 className="w-4 h-4 animate-spin" />
                   ) : (
                     <Send className="w-4 h-4" />
                   )}
@@ -741,8 +747,11 @@ const handleSendMessage = async (e) => {
 
       {/* Error Toast */}
       {error && (
-        <div className="fixed bottom-4 right-4 bg-red-500 text-white px-4 py-2 rounded-lg shadow-lg">
-          {error}
+        <div className="fixed bottom-4 right-4 bg-red-500/90 backdrop-blur-sm text-white px-4 py-3 rounded-lg shadow-2xl border border-red-400/50 animate-slideUp z-50">
+          <div className="flex items-center gap-2">
+            <div className="w-2 h-2 bg-red-300 rounded-full animate-pulse"></div>
+            <span className="text-sm font-medium">{error}</span>
+          </div>
         </div>
       )}
 
@@ -761,9 +770,57 @@ const handleSendMessage = async (e) => {
         }}
         username={user.username}
       />
+
+      <style jsx>{`
+        @keyframes fadeIn {
+          from {
+            opacity: 0;
+          }
+          to {
+            opacity: 1;
+          }
+        }
+
+        @keyframes slideUp {
+          from {
+            opacity: 0;
+            transform: translateY(10px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
+        }
+
+        .animate-fadeIn {
+          animation: fadeIn 0.3s ease-out;
+        }
+
+        .animate-slideUp {
+          animation: slideUp 0.3s ease-out;
+        }
+
+        .custom-scrollbar::-webkit-scrollbar {
+          width: 8px;
+          height: 8px;
+        }
+
+        .custom-scrollbar::-webkit-scrollbar-track {
+          background: rgba(0, 0, 0, 0.1);
+          border-radius: 10px;
+        }
+
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+          background: rgba(0, 163, 255, 0.3);
+          border-radius: 10px;
+        }
+
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+          background: rgba(0, 163, 255, 0.5);
+        }
+      `}</style>
     </div>
   );
 };
 
 export default UserDashboard;
-  

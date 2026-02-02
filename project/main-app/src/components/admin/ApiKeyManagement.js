@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Key, Plus, Edit2, Trash2, CheckCircle, XCircle, Loader2, Server, TestTube } from 'lucide-react';
+import { Key, Plus, Edit2, Trash2, CheckCircle, XCircle, Loader2, Server, TestTube, Zap, Globe, Calendar, MoreVertical, AlertCircle, RefreshCw, Settings, Shield, Lock } from 'lucide-react';
 import { apiService } from '../../services/apiService';
 
 const ApiKeyManagement = ({ user, onError }) => {
@@ -62,8 +62,7 @@ const ApiKeyManagement = ({ user, onError }) => {
 
   const handleCreateApiKey = async (e) => {
     e.preventDefault();
-    
-    // Validation based on provider
+
     if (!createApiKeyForm.name) {
       setError('Please fill in configuration name');
       return;
@@ -90,7 +89,6 @@ const ApiKeyManagement = ({ user, onError }) => {
         created_by: user.id
       };
 
-      // Add provider-specific fields
       if (createApiKeyForm.provider === 'openrouter') {
         configData.api_key = createApiKeyForm.api_key;
         configData.model = createApiKeyForm.model || 'minimax/minimax-01';
@@ -100,7 +98,7 @@ const ApiKeyManagement = ({ user, onError }) => {
       }
 
       const result = await apiService.createLLMConfig(configData);
-      
+
       if (result.success) {
         setShowCreateApiKey(false);
         resetApiKeyForm();
@@ -121,8 +119,7 @@ const ApiKeyManagement = ({ user, onError }) => {
       ...prev,
       [name]: value
     }));
-    
-    // Reset provider-specific fields when provider changes
+
     if (name === 'provider') {
       setCreateApiKeyForm(prev => ({
         ...prev,
@@ -131,7 +128,7 @@ const ApiKeyManagement = ({ user, onError }) => {
         model: value === 'openrouter' ? (prev.model || 'minimax/minimax-01') : (prev.model || 'default')
       }));
     }
-    
+
     if (error) setError('');
   };
 
@@ -150,8 +147,7 @@ const ApiKeyManagement = ({ user, onError }) => {
 
   const handleUpdateApiKey = async (e) => {
     e.preventDefault();
-    
-    // Validation based on provider
+
     if (!createApiKeyForm.name) {
       setError('Please fill in configuration name');
       return;
@@ -177,7 +173,6 @@ const ApiKeyManagement = ({ user, onError }) => {
         description: createApiKeyForm.description
       };
 
-      // Add provider-specific fields
       if (createApiKeyForm.provider === 'openrouter') {
         configData.api_key = createApiKeyForm.api_key;
         configData.model = createApiKeyForm.model || 'minimax/minimax-01';
@@ -187,7 +182,7 @@ const ApiKeyManagement = ({ user, onError }) => {
       }
 
       const result = await apiService.updateLLMConfig(editingApiKey.id, configData);
-      
+
       if (result.success) {
         setShowCreateApiKey(false);
         setEditingApiKey(null);
@@ -208,14 +203,11 @@ const ApiKeyManagement = ({ user, onError }) => {
     try {
       const result = await apiService.testLLMConfig(configId);
       if (result.success) {
-        // Show success message properly
         if (result.data.message) {
-          // Use a proper success notification instead of alert
           const successMsg = result.data.message + (result.data.details?.output ? '\n\n' + result.data.details.output : '');
-          // Call onError with success flag or create a success handler
           onError(successMsg, 'success');
         }
-        loadApiKeys(); // Reload to show updated test status
+        loadApiKeys();
       } else {
         onError(`Connection test failed: ${result.error}`);
       }
@@ -227,16 +219,15 @@ const ApiKeyManagement = ({ user, onError }) => {
   };
 
   const handleDeleteApiKey = async (apiKeyId) => {
-    // Find the API key to check if it's active
     const apiKey = apiKeys.find(key => key.id === apiKeyId);
     const isActive = apiKey?.is_active;
-    
+
     let confirmMessage = 'Are you sure you want to delete this LLM configuration?';
     if (isActive) {
-      confirmMessage += '\n\n⚠️ This is currently the active configuration. Deleting it will deactivate it first.';
+      confirmMessage += '\n\n⚠️ This is currently active configuration. Deleting it will deactivate it first.';
     }
     confirmMessage += '\n\nThis action cannot be undone.';
-    
+
     if (!window.confirm(confirmMessage)) {
       return;
     }
@@ -273,13 +264,13 @@ const ApiKeyManagement = ({ user, onError }) => {
   };
 
   const resetApiKeyForm = () => {
-    setCreateApiKeyForm({ 
-      name: '', 
-      api_key: '', 
-      provider: 'openrouter', 
-      endpoint_url: '', 
-      model: '', 
-      description: '' 
+    setCreateApiKeyForm({
+      name: '',
+      api_key: '',
+      provider: 'openrouter',
+      endpoint_url: '',
+      model: '',
+      description: ''
     });
     setEditingApiKey(null);
     setShowCreateApiKey(false);
@@ -287,162 +278,275 @@ const ApiKeyManagement = ({ user, onError }) => {
   };
 
   const formatDate = (dateString) => {
-    return new Date(dateString).toLocaleString();
+    const date = new Date(dateString);
+    return date.toLocaleDateString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric'
+    });
   };
 
   const getProviderConfig = (providerType) => {
     return supportedProviders.find(p => p.provider === providerType);
   };
 
-  const renderProviderFields = () => {
-    const providerConfig = getProviderConfig(createApiKeyForm.provider);
-    
-    if (!providerConfig) return null;
-
-    return (
-      <>
-        {providerConfig.config_fields.map((field) => {
-          if (field.name === 'api_key' && createApiKeyForm.provider !== 'openrouter') return null;
-          if (field.name === 'endpoint_url' && createApiKeyForm.provider !== 'local') return null;
-          
-          return (
-            <div key={field.name}>
-              <label className="block text-k8s-gray text-sm font-medium mb-2">
-                {field.name.replace('_', ' ').charAt(0).toUpperCase() + field.name.slice(1).replace('_', ' ')}
-                {field.required && <span className="text-red-400">*</span>}
-              </label>
-              {field.name === 'api_key' ? (
-                <input
-                  type="password"
-                  name={field.name}
-                  value={createApiKeyForm[field.name] || ''}
-                  onChange={handleCreateApiKeyChange}
-                  className="k8s-input w-full"
-                  placeholder={field.description}
-                  required={field.required}
-                  disabled={loading.apiKeyAction}
-                />
-              ) : (
-                <input
-                  type="text"
-                  name={field.name}
-                  value={createApiKeyForm[field.name] || ''}
-                  onChange={handleCreateApiKeyChange}
-                  className="k8s-input w-full"
-                  placeholder={field.description}
-                  required={field.required}
-                  disabled={loading.apiKeyAction}
-                />
-              )}
-            </div>
-          );
-        })}
-      </>
-    );
+  const getProviderIcon = (provider) => {
+    switch (provider) {
+      case 'openrouter':
+        return <Globe className="w-4 h-4" />;
+      case 'local':
+        return <Server className="w-4 h-4" />;
+      default:
+        return <Zap className="w-4 h-4" />;
+    }
   };
 
+  const activeConfigs = apiKeys.filter(k => k.is_active).length;
+  const testedConfigs = apiKeys.filter(k => k.test_status === 'success').length;
+
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h3 className="text-2xl font-semibold text-white flex items-center gap-3">
-          <Key className="w-6 h-6 text-k8s-purple" />
-          LLM Configurations
-        </h3>
-        <button
-          onClick={() => setShowCreateApiKey(true)}
-          className="k8s-button-primary flex items-center gap-2"
-        >
-          <Plus className="w-4 h-4" />
-          Add LLM Config
-        </button>
+    <div className="space-y-4 animate-fadeIn">
+      {/* Header Section */}
+      <div className="relative">
+        <div className="absolute inset-0 bg-gradient-to-r from-k8s-purple/10 via-indigo-500/10 to-transparent rounded-2xl blur-xl"></div>
+        <div className="relative k8s-card p-4">
+          <div className="flex items-center justify-between">
+            <div className="space-y-1">
+              <div className="flex items-center gap-2">
+                <div className="p-2 bg-k8s-purple/20 rounded-lg border border-k8s-purple/30">
+                  <Key className="w-5 h-5 text-k8s-purple" />
+                </div>
+                <div>
+                  <h2 className="text-xl font-bold text-white tracking-tight">LLM Configurations</h2>
+                  <p className="text-xs text-k8s-gray mt-0.5">Manage AI model providers and API keys</p>
+                </div>
+              </div>
+            </div>
+            <button
+              onClick={() => setShowCreateApiKey(true)}
+              className="k8s-button-primary flex items-center gap-2 px-4 py-2 text-sm shadow-lg shadow-k8s-purple/20 hover:shadow-k8s-purple/30 transition-all duration-300 hover:scale-105"
+            >
+              <Plus className="w-4 h-4" />
+              Add Configuration
+            </button>
+          </div>
+
+          {/* Stats Bar */}
+          <div className="grid grid-cols-3 gap-3 mt-3 pt-3 border-t border-k8s-purple/20">
+            <div className="flex items-center gap-2">
+              <div className="p-1.5 bg-k8s-green/10 rounded-lg">
+                <Zap className="w-4 h-4 text-k8s-green" />
+              </div>
+              <div>
+                <p className="text-lg font-bold text-white">{activeConfigs}</p>
+                <p className="text-xs text-k8s-gray">Active</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="p-1.5 bg-k8s-purple/10 rounded-lg">
+                <Key className="w-4 h-4 text-k8s-purple" />
+              </div>
+              <div>
+                <p className="text-lg font-bold text-white">{apiKeys.length}</p>
+                <p className="text-xs text-k8s-gray">Total Configs</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="p-1.5 bg-k8s-blue/10 rounded-lg">
+                <CheckCircle className="w-4 h-4 text-k8s-blue" />
+              </div>
+              <div>
+                <p className="text-lg font-bold text-white">{testedConfigs}</p>
+                <p className="text-xs text-k8s-gray">Tested</p>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
 
-      {/* Create/Edit LLM Config Modal */}
+      {/* Create/Edit Modal */}
       {showCreateApiKey && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
-          <div className="k8s-card w-full max-w-2xl mx-4 max-h-[90vh] overflow-y-auto">
-            <h4 className="text-xl font-semibold text-white mb-6">
-              {editingApiKey ? 'Edit LLM Configuration' : 'Add New LLM Configuration'}
-            </h4>
-            
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-md flex items-center justify-center z-50 animate-fadeIn p-4">
+          <div className="k8s-card p-5 w-full max-w-2xl max-h-[85vh] overflow-y-auto shadow-2xl border-2 border-k8s-purple/30 animate-slideUp">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <div className="p-1.5 bg-k8s-purple/20 rounded-lg">
+                  {editingApiKey ? <Edit2 className="w-4 h-4 text-k8s-purple" /> : <Plus className="w-4 h-4 text-k8s-purple" />}
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold text-white">
+                    {editingApiKey ? 'Edit Configuration' : 'New Configuration'}
+                  </h3>
+                  <p className="text-xs text-k8s-gray">
+                    {editingApiKey ? 'Update your AI provider settings' : 'Add a new LLM provider'}
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={resetApiKeyForm}
+                className="p-1.5 hover:bg-k8s-gray/10 rounded-lg transition-colors text-k8s-gray hover:text-white"
+              >
+                <XCircle className="w-5 h-5" />
+              </button>
+            </div>
+
             {error && (
-              <div className="mb-4 p-3 bg-red-500/10 border border-red-500/30 rounded-lg flex items-center gap-2">
-                <XCircle className="w-4 h-4 text-red-400 flex-shrink-0" />
-                <span className="text-red-300 text-sm">{error}</span>
+              <div className="mb-4 p-3 bg-red-500/10 border-l-4 border-red-500 rounded-lg flex items-start gap-2 animate-slideDown">
+                <AlertCircle className="w-4 h-4 text-red-400 flex-shrink-0 mt-0.5" />
+                <div>
+                  <p className="text-red-300 font-medium text-sm">Error</p>
+                  <p className="text-red-300/80 text-xs mt-0.5">{error}</p>
+                </div>
               </div>
             )}
-            
-            <form onSubmit={editingApiKey ? handleUpdateApiKey : handleCreateApiKey}>
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-k8s-gray text-sm font-medium mb-2">
-                    Configuration Name
-                  </label>
-                  <input
-                    type="text"
-                    name="name"
-                    value={createApiKeyForm.name}
-                    onChange={handleCreateApiKeyChange}
-                    className="k8s-input w-full"
-                    placeholder="e.g., OpenRouter Production, Local LLM"
-                    required
-                    disabled={loading.apiKeyAction}
-                  />
-                </div>
-                
-                <div>
-                  <label className="block text-k8s-gray text-sm font-medium mb-2">
-                    Provider
-                  </label>
-                  <select
-                    name="provider"
-                    value={createApiKeyForm.provider}
-                    onChange={handleCreateApiKeyChange}
-                    className="k8s-input w-full"
-                    disabled={loading.apiKeyAction}
-                  >
-                    {supportedProviders.map((provider) => (
-                      <option key={provider.provider} value={provider.provider}>
-                        {provider.name}
-                      </option>
-                    ))}
-                  </select>
-                  {getProviderConfig(createApiKeyForm.provider) && (
-                    <p className="text-k8s-gray text-xs mt-1">
-                      {getProviderConfig(createApiKeyForm.provider).description}
-                    </p>
-                  )}
-                </div>
-                
-                {renderProviderFields()}
-                
-                <div>
-                  <label className="block text-k8s-gray text-sm font-medium mb-2">
-                    Description
-                  </label>
-                  <textarea
-                    name="description"
-                    value={createApiKeyForm.description}
-                    onChange={handleCreateApiKeyChange}
-                    className="k8s-input w-full h-20 resize-none"
-                    placeholder="Optional description..."
-                    disabled={loading.apiKeyAction}
-                  />
-                </div>
+
+            <form onSubmit={editingApiKey ? handleUpdateApiKey : handleCreateApiKey} className="space-y-4">
+              {/* Name Field */}
+              <div className="space-y-1.5">
+                <label htmlFor="config-name" className="block text-xs font-semibold text-white flex items-center gap-2">
+                  <Settings className="w-3.5 h-3.5 text-k8s-purple" />
+                  Configuration Name
+                </label>
+                <input
+                  type="text"
+                  id="config-name"
+                  name="name"
+                  value={createApiKeyForm.name}
+                  onChange={handleCreateApiKeyChange}
+                  className="k8s-input w-full transition-all duration-200 focus:scale-[1.01] text-sm py-2"
+                  placeholder="e.g., OpenRouter Production"
+                  disabled={loading.apiKeyAction}
+                />
               </div>
-              
-              <div className="flex gap-3 mt-6">
-                <button
-                  type="submit"
-                  className="k8s-button-primary flex-1"
+
+              {/* Provider Field */}
+              <div className="space-y-1.5">
+                <label htmlFor="provider" className="block text-xs font-semibold text-white flex items-center gap-2">
+                  <Zap className="w-3.5 h-3.5 text-k8s-purple" />
+                  Provider
+                </label>
+                <select
+                  id="provider"
+                  name="provider"
+                  value={createApiKeyForm.provider}
+                  onChange={handleCreateApiKeyChange}
+                  className="k8s-input w-full transition-all duration-200 focus:scale-[1.01] text-sm py-2"
                   disabled={loading.apiKeyAction}
                 >
-                  {loading.apiKeyAction ? (
-                    <Loader2 className="w-4 h-4 animate-spin mx-auto" />
-                  ) : (
-                    editingApiKey ? 'Update Configuration' : 'Create Configuration'
-                  )}
-                </button>
+                  {supportedProviders.map((provider) => (
+                    <option key={provider.provider} value={provider.provider}>
+                      {provider.name}
+                    </option>
+                  ))}
+                </select>
+                {getProviderConfig(createApiKeyForm.provider) && (
+                  <p className="text-xs text-k8s-gray mt-1">
+                    {getProviderConfig(createApiKeyForm.provider).description}
+                  </p>
+                )}
+              </div>
+
+              {/* Provider-specific Fields */}
+              {createApiKeyForm.provider === 'openrouter' && (
+                <>
+                  {/* API Key Field */}
+                  <div className="space-y-1.5">
+                    <label htmlFor="api-key" className="block text-xs font-semibold text-white flex items-center gap-2">
+                      <Lock className="w-3.5 h-3.5 text-k8s-purple" />
+                      API Key <span className="text-red-400">*</span>
+                    </label>
+                    <input
+                      type="password"
+                      id="api-key"
+                      name="api_key"
+                      value={createApiKeyForm.api_key}
+                      onChange={handleCreateApiKeyChange}
+                      className="k8s-input w-full transition-all duration-200 focus:scale-[1.01] text-sm py-2 font-mono"
+                      placeholder="•••••••••••••••••••••"
+                      disabled={loading.apiKeyAction}
+                    />
+                  </div>
+
+                  {/* Model Field */}
+                  <div className="space-y-1.5">
+                    <label htmlFor="model" className="block text-xs font-semibold text-white flex items-center gap-2">
+                      <Zap className="w-3.5 h-3.5 text-k8s-purple" />
+                      Model
+                    </label>
+                    <input
+                      type="text"
+                      id="model"
+                      name="model"
+                      value={createApiKeyForm.model}
+                      onChange={handleCreateApiKeyChange}
+                      className="k8s-input w-full transition-all duration-200 focus:scale-[1.01] text-sm py-2 font-mono"
+                      placeholder="e.g., minimax/minimax-01"
+                      disabled={loading.apiKeyAction}
+                    />
+                  </div>
+                </>
+              )}
+
+              {createApiKeyForm.provider === 'local' && (
+                <>
+                  {/* Endpoint URL Field */}
+                  <div className="space-y-1.5">
+                    <label htmlFor="endpoint-url" className="block text-xs font-semibold text-white flex items-center gap-2">
+                      <Globe className="w-3.5 h-3.5 text-k8s-purple" />
+                      Endpoint URL <span className="text-red-400">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      id="endpoint-url"
+                      name="endpoint_url"
+                      value={createApiKeyForm.endpoint_url}
+                      onChange={handleCreateApiKeyChange}
+                      className="k8s-input w-full transition-all duration-200 focus:scale-[1.01] text-sm py-2 font-mono"
+                      placeholder="http://localhost:8080"
+                      disabled={loading.apiKeyAction}
+                    />
+                  </div>
+
+                  {/* Model Field */}
+                  <div className="space-y-1.5">
+                    <label htmlFor="local-model" className="block text-xs font-semibold text-white flex items-center gap-2">
+                      <Zap className="w-3.5 h-3.5 text-k8s-purple" />
+                      Model
+                    </label>
+                    <input
+                      type="text"
+                      id="local-model"
+                      name="model"
+                      value={createApiKeyForm.model}
+                      onChange={handleCreateApiKeyChange}
+                      className="k8s-input w-full transition-all duration-200 focus:scale-[1.01] text-sm py-2 font-mono"
+                      placeholder="e.g., default"
+                      disabled={loading.apiKeyAction}
+                    />
+                  </div>
+                </>
+              )}
+
+              {/* Description Field */}
+              <div className="space-y-1.5">
+                <label htmlFor="description" className="block text-xs font-semibold text-white flex items-center gap-2">
+                  <Settings className="w-3.5 h-3.5 text-k8s-purple" />
+                  Description (optional)
+                </label>
+                <textarea
+                  id="description"
+                  name="description"
+                  value={createApiKeyForm.description}
+                  onChange={handleCreateApiKeyChange}
+                  className="k8s-input w-full transition-all duration-200 focus:scale-[1.01] text-sm py-2"
+                  placeholder="Optional notes about this configuration..."
+                  rows={3}
+                  disabled={loading.apiKeyAction}
+                />
+              </div>
+
+              {/* Submit Buttons */}
+              <div className="flex gap-3 pt-4">
                 <button
                   type="button"
                   onClick={resetApiKeyForm}
@@ -451,170 +555,211 @@ const ApiKeyManagement = ({ user, onError }) => {
                 >
                   Cancel
                 </button>
+                <button
+                  type="submit"
+                  disabled={loading.apiKeyAction}
+                  className="k8s-button-primary flex-1 flex items-center justify-center gap-2"
+                >
+                  {loading.apiKeyAction ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      Saving...
+                    </>
+                  ) : (
+                    <>
+                      {editingApiKey ? <Edit2 className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
+                      {editingApiKey ? 'Update' : 'Create'} Configuration
+                    </>
+                  )}
+                </button>
               </div>
             </form>
           </div>
         </div>
       )}
-      
-      {loading.apiKeys ? (
-        <div className="text-center py-12">
-          <div className="k8s-loader mx-auto"></div>
-          <p className="text-k8s-gray mt-4">Loading LLM configurations...</p>
-        </div>
-      ) : (
-        <div className="k8s-card overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead className="bg-k8s-dark/50 border-b border-k8s-purple/20">
-                <tr>
-                  <th className="text-left py-4 px-6 text-k8s-gray font-semibold">Configuration</th>
-                  <th className="text-left py-4 px-6 text-k8s-gray font-semibold">Provider</th>
-                  <th className="text-left py-4 px-6 text-k8s-gray font-semibold">Status</th>
-                  <th className="text-left py-4 px-6 text-k8s-gray font-semibold">Usage</th>
-                  <th className="text-left py-4 px-6 text-k8s-gray font-semibold">Created</th>
-                  <th className="text-left py-4 px-6 text-k8s-gray font-semibold">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {apiKeys.length === 0 ? (
-                  <tr>
-                    <td colSpan="6" className="text-center py-8 text-k8s-gray">
-                      No LLM configurations yet. Add your first configuration to enable AI features.
-                    </td>
-                  </tr>
-                ) : (
-                  apiKeys.map((apiKey) => (
-                    <tr key={apiKey.id} className="border-b border-k8s-gray/20 hover:bg-k8s-dark/30 transition-colors">
-                      <td className="py-4 px-6">
-                        <div>
-                          <p className="text-white font-medium">{apiKey.name}</p>
-                          {apiKey.description && (
-                            <p className="text-k8s-gray text-sm mt-1">{apiKey.description}</p>
-                          )}
-                          {apiKey.test_status && (
-                            <div className="flex items-center gap-2 mt-2">
-                              {apiKey.test_status === 'success' ? (
-                                <div className="flex items-center gap-1 text-k8s-green text-xs">
-                                  <CheckCircle className="w-3 h-3" />
-                                  Tested successfully
-                                </div>
-                              ) : apiKey.test_status === 'failed' ? (
-                                <div className="flex items-center gap-1 text-k8s-red text-xs">
-                                  <XCircle className="w-3 h-3" />
-                                  Test failed
-                                </div>
-                              ) : (
-                                <div className="flex items-center gap-1 text-k8s-gray text-xs">
-                                  <TestTube className="w-3 h-3" />
-                                  Not tested
-                                </div>
-                              )}
-                              {apiKey.last_tested && (
-                                <span className="text-k8s-gray text-xs">
-                                  ({formatDate(apiKey.last_tested)})
-                                </span>
-                              )}
-                            </div>
-                          )}
+
+      {/* Configurations List */}
+      <div className="relative">
+        <div className="absolute inset-0 bg-gradient-to-r from-k8s-purple/5 via-indigo-500/5 to-transparent rounded-2xl blur-xl"></div>
+        <div className="relative k8s-card p-4">
+          {/* Header */}
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-2">
+              <Key className="w-5 h-5 text-k8s-purple" />
+              <h3 className="text-base font-bold text-white">Saved Configurations</h3>
+            </div>
+            <button
+              onClick={loadApiKeys}
+              className="k8s-button-secondary flex items-center gap-2 px-4 py-2 text-sm transition-all duration-300 hover:scale-105"
+              disabled={loading.apiKeys}
+            >
+              {loading.apiKeys ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  Loading...
+                </>
+              ) : (
+                <>
+                  <RefreshCw className="w-4 h-4" />
+                  Refresh
+                </>
+              )}
+            </button>
+          </div>
+
+          {loading.apiKeys ? (
+            <div className="flex flex-col items-center justify-center py-12 gap-3">
+              <Loader2 className="w-8 h-8 text-k8s-purple animate-spin" />
+              <p className="text-k8s-gray text-sm">Loading configurations...</p>
+            </div>
+          ) : apiKeys.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-12 gap-3">
+              <Key className="w-12 h-12 text-k8s-gray" />
+              <div className="text-center">
+                <p className="text-white font-medium">No LLM configurations found</p>
+                <p className="text-k8s-gray text-sm mt-1">Add your first configuration to enable AI features</p>
+              </div>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-h-[600px] overflow-y-auto pr-2">
+              {apiKeys.map((apiKey) => (
+                <div
+                  key={apiKey.id}
+                  className="relative hover:scale-[1.01] transition-all duration-300 p-4 bg-k8s-dark/30 rounded-xl border border-k8s-purple/20 hover:border-k8s-purple/40"
+                >
+                  {/* Status Badge */}
+                  <div className="absolute top-3 right-3">
+                    <div className={`px-2.5 py-1 rounded-full text-xs font-semibold flex items-center gap-1.5 ${
+                      apiKey.is_active
+                        ? 'bg-k8s-green/20 text-k8s-green border border-k8s-green/30'
+                        : 'bg-k8s-gray/20 text-k8s-gray border border-k8s-gray/30'
+                    }`}>
+                      <Shield className="w-3.5 h-3.5" />
+                      {apiKey.is_active ? 'Active' : 'Inactive'}
+                    </div>
+                  </div>
+
+                  {/* Content */}
+                  <div className="space-y-3 mt-10">
+                    {/* Provider Info */}
+                    <div className="flex items-center gap-3">
+                      <div className={`p-2.5 rounded-xl ${
+                        apiKey.is_active
+                          ? 'bg-k8s-purple/10'
+                          : 'bg-k8s-gray/10'
+                      }`}>
+                        <div className="text-k8s-purple">
+                          {getProviderIcon(apiKey.provider)}
                         </div>
-                      </td>
-                      <td className="py-4 px-6">
-                        <div className="flex items-center gap-2">
-                          <span className="px-2 py-1 text-xs bg-k8s-purple/20 text-k8s-purple rounded-full capitalize">
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-1 flex-wrap">
+                          <h4 className="text-base font-bold text-white truncate">{apiKey.name}</h4>
+                          <span className="px-2 py-0.5 bg-k8s-purple/20 text-k8s-purple rounded-full text-xs font-medium capitalize">
                             {apiKey.provider}
                           </span>
-                          {apiKey.provider === 'local' && (
-                            <Server className="w-4 h-4 text-k8s-blue" title="Local LLM" />
-                          )}
                         </div>
-                      </td>
-                      <td className="py-4 px-6">
-                        {apiKey.is_active ? (
-                          <div className="flex items-center gap-2 text-k8s-green">
-                            <CheckCircle className="w-4 h-4" />
-                            <span className="text-sm">Active</span>
-                          </div>
-                        ) : (
-                          <div className="flex items-center gap-2 text-k8s-gray">
-                            <XCircle className="w-4 h-4" />
-                            <span className="text-sm">Inactive</span>
-                          </div>
+                        {apiKey.description && (
+                          <p className="text-xs text-k8s-gray line-clamp-2">{apiKey.description}</p>
                         )}
-                      </td>
-                      <td className="py-4 px-6">
-                        <div className="text-k8s-gray text-sm">
-                          <p>Used: {apiKey.usage_count || 0}</p>
-                          {apiKey.last_used && (
-                            <p className="text-xs">Last: {formatDate(apiKey.last_used)}</p>
-                          )}
-                        </div>
-                      </td>
-                      <td className="py-4 px-6 text-k8s-gray text-sm">
-                        {formatDate(apiKey.created_at)}
-                      </td>
-                      <td className="py-4 px-6">
-                        <div className="flex items-center gap-2">
-                          <button
-                            onClick={() => handleTestConnection(apiKey.id)}
-                            className="p-2 text-k8s-blue hover:bg-k8s-blue/10 rounded transition-colors"
-                            title="Test Connection"
-                            disabled={loading.testConnection}
-                          >
-                            {loading.testConnection ? (
-                              <Loader2 className="w-4 h-4 animate-spin" />
-                            ) : (
-                              <TestTube className="w-4 h-4" />
-                            )}
-                          </button>
-                          {!apiKey.is_active && (
-                            <button
-                              onClick={() => handleActivateApiKey(apiKey.id)}
-                              className="p-2 text-k8s-green hover:bg-k8s-green/10 rounded transition-colors"
-                              title="Activate"
-                              disabled={loading.apiKeyAction}
-                            >
-                              <CheckCircle className="w-4 h-4" />
-                            </button>
-                          )}
-                          <button
-                            onClick={() => handleEditApiKey(apiKey)}
-                            className="p-2 text-k8s-blue hover:bg-k8s-blue/10 rounded transition-colors"
-                            title="Edit"
-                          >
-                            <Edit2 className="w-4 h-4" />
-                          </button>
-                          <button
-                            onClick={() => handleDeleteApiKey(apiKey.id)}
-                            className="p-2 text-k8s-red hover:bg-k8s-red/10 rounded transition-colors"
-                            title="Delete"
-                            disabled={loading.apiKeyAction}
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      )}
+                      </div>
+                    </div>
 
-      {!loading.apiKeys && apiKeys.length === 0 && (
-        <div className="k8s-card p-8 text-center">
-          <Key className="w-12 h-12 text-k8s-gray mx-auto mb-4" />
-          <p className="text-k8s-gray mb-4">No LLM configurations yet</p>
-          <button 
-            onClick={() => setShowCreateApiKey(true)}
-            className="k8s-button-primary"
-          >
-            Add Your First LLM Configuration
-          </button>
+                    {/* Test Status */}
+                    {apiKey.test_status && (
+                      <div className={`flex items-center gap-2 text-xs ${
+                        apiKey.test_status === 'success' ? 'text-k8s-green' :
+                        apiKey.test_status === 'failed' ? 'text-k8s-red' :
+                        'text-k8s-gray'
+                      }`}>
+                        {apiKey.test_status === 'success' ? (
+                          <>
+                            <CheckCircle className="w-3.5 h-3.5" />
+                            Connection tested successfully
+                            {apiKey.last_tested && <span className="ml-1">({formatDate(apiKey.last_tested)})</span>}
+                          </>
+                        ) : apiKey.test_status === 'failed' ? (
+                          <>
+                            <XCircle className="w-3.5 h-3.5" />
+                            Connection test failed
+                            {apiKey.last_tested && <span className="ml-1">({formatDate(apiKey.last_tested)})</span>}
+                          </>
+                        ) : (
+                          <>
+                            <TestTube className="w-3.5 h-3.5" />
+                            Not tested yet
+                          </>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Usage Stats */}
+                    <div className="flex items-center gap-2 text-xs text-k8s-gray">
+                      <Zap className="w-3.5 h-3.5" />
+                      <span>Usage: {apiKey.usage_count || 0} times</span>
+                      {apiKey.last_used && (
+                        <span className="ml-2">Last used: {formatDate(apiKey.last_used)}</span>
+                      )}
+                    </div>
+
+                    {/* Created Date */}
+                    <div className="flex items-center gap-2 text-xs text-k8s-gray">
+                      <Calendar className="w-3.5 h-3.5" />
+                      <span>Created: {formatDate(apiKey.created_at)}</span>
+                    </div>
+
+                    {/* Actions */}
+                    <div className="flex gap-2 pt-2 border-t border-k8s-purple/10">
+                      <button
+                        onClick={() => handleTestConnection(apiKey.id)}
+                        className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-medium rounded-lg bg-k8s-blue/20 text-k8s-blue hover:bg-k8s-blue/30 transition-colors"
+                        disabled={loading.testConnection}
+                      >
+                        {loading.testConnection ? (
+                          <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                        ) : (
+                          <>
+                            <TestTube className="w-3.5 h-3.5" />
+                            Test
+                          </>
+                        )}
+                      </button>
+
+                      {!apiKey.is_active && (
+                        <button
+                          onClick={() => handleActivateApiKey(apiKey.id)}
+                          className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-medium rounded-lg bg-k8s-green/20 text-k8s-green hover:bg-k8s-green/30 transition-colors"
+                          disabled={loading.apiKeyAction}
+                        >
+                          <Zap className="w-3.5 h-3.5" />
+                          Activate
+                        </button>
+                      )}
+
+                      <button
+                        onClick={() => handleEditApiKey(apiKey)}
+                        className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-medium rounded-lg bg-k8s-purple/20 text-k8s-purple hover:bg-k8s-purple/30 transition-colors"
+                      >
+                        <Edit2 className="w-3.5 h-3.5" />
+                        Edit
+                      </button>
+
+                      <button
+                        onClick={() => handleDeleteApiKey(apiKey.id)}
+                        className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-medium rounded-lg bg-red-500/20 text-red-400 hover:bg-red-500/30 transition-colors"
+                        disabled={loading.apiKeyAction}
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                        Delete
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
-      )}
+      </div>
     </div>
   );
 };

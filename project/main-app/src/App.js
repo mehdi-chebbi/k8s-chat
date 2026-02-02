@@ -50,7 +50,7 @@ function App() {
         <div className="text-center">
           <Cpu className="k8s-logo-animation w-16 h-16 text-k8s-blue mx-auto mb-4" />
           <div className="k8s-loader mx-auto"></div>
-          <p className="text-k8s-gray mt-4">Initializing K8s Smart Bot...</p>
+          <p className="text-k8s-gray mt-4">Initializing KubeMate...</p>
         </div>
       </div>
     );

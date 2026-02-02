@@ -163,26 +163,6 @@ const AdminDashboard = ({ user, onLogout }) => {
               onError={handleError}
             />
 
-            {/* Quick Kubeconfig Overview */}
-            <div className="space-y-6">
-              <div className="flex items-center justify-between">
-                <h3 className="text-2xl font-semibold text-white flex items-center gap-3">
-                  <FolderOpen className="w-6 h-6 text-k8s-cyan" />
-                  Quick Kubeconfig Access
-                </h3>
-                <button
-                  onClick={() => setActiveTab('kubeconfigs')}
-                  className="k8s-button-secondary flex items-center gap-2"
-                >
-                  Manage Kubeconfigs
-                </button>
-              </div>
-              <div className="k8s-card p-6 text-center">
-                <p className="text-k8s-gray">
-                  For full kubeconfig management, switch to the Kubeconfigs tab above.
-                </p>
-              </div>
-            </div>
           </div>
         )}
       </div>

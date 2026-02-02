@@ -173,7 +173,7 @@ class OpenRouterProvider(LLMProvider):
         self.headers = {
             "Authorization": f"Bearer {self.api_key}",
             "HTTP-Referer": "http://localhost:5000",
-            "X-Title": "K8s Smart Bot",
+            "X-Title": "KubeMate",
             "Content-Type": "application/json"
         }
     
