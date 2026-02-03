@@ -15,60 +15,60 @@ class CommandVerifier:
     
     # Potentially dangerous patterns to block
     UNSAFE_PATTERNS: List[str] = [
-        # Command injection patterns
-        r'\|\s*(grep|awk|sed|xargs|rm|mv|cp|sh|bash|zsh|fish|python|perl|ruby|php)',
-        r';\s*(rm|mv|cp|sh|bash|zsh|fish|python|perl|ruby|php)',
-        r'&\s*(rm|mv|cp|sh|bash|zsh|fish|python|perl|ruby|php)',
-        r'&&\s*(rm|mv|cp|sh|bash|zsh|fish|python|perl|ruby|php)',
-        r'\|\|\s*(rm|mv|cp|sh|bash|zsh|fish|python|perl|ruby|php)',
+        # Command injection patterns - pipes and chaining
+        r'\|\s*(grep|awk|sed|xargs|rm|mv|cp|sh|bash|zsh|fish|python|perl|ruby|php)\b',
+        r';\s*(rm|mv|cp|sh|bash|zsh|fish|python|perl|ruby|php)\b',
+        r'&\s*(rm|mv|cp|sh|bash|zsh|fish|python|perl|ruby|php)\b',
+        r'&&\s*(rm|mv|cp|sh|bash|zsh|fish|python|perl|ruby|php)\b',
+        r'\|\|\s*(rm|mv|cp|sh|bash|zsh|fish|python|perl|ruby|php)\b',
         
         # File operations (block dangerous redirections)
         r'\s>\s+(?!/dev/null\b)',  # Block output redirection except to /dev/null
-        r'\s>>\s+',               # Block all append redirection
-        r'\s<\s+(?!/dev/)',       # Block input redirection except from /dev/*
-        r'\s2>\s+',               # Block stderr redirection
-        r'\s1>\s+',               # Block stdout redirection
+        r'\s>>\s+',                # Block all append redirection
+        r'\s<\s+(?!/dev/)',        # Block input redirection except from /dev/*
+        r'\s2>\s+',                # Block stderr redirection
+        r'\s1>\s+',                # Block stdout redirection
         
         # Command substitution
         r'\$\(',
         r'`.*`',
         
         # Environment variables that could be dangerous
-        r'\$HOME',
-        r'\$PATH',
-        r'\$SHELL',
+        r'\$HOME\b',
+        r'\$PATH\b',
+        r'\$SHELL\b',
         
-        # Direct file system access
-        r'/etc/',
-        r'/var/',
-        r'/usr/',
-        r'/bin/',
-        r'/sbin/',
-        r'/tmp/',
-        r'~/',
+        # Direct file system access to sensitive directories
+        r'\b/etc/',
+        r'\b/var/',
+        r'\b/usr/',
+        r'\b/bin/',
+        r'\b/sbin/',
+        r'\b/tmp/',
+        r'\b~/',
         
-        # Network operations
-        r'curl',
-        r'wget',
-        r'nc',
-        r'netcat',
-        r'telnet',
-        r'ssh',
-        r'scp',
-        r'rsync',
+        # Network operations - with word boundaries
+        r'\bcurl\b',
+        r'\bwget\b',
+        r'\bnc\b',
+        r'\bnetcat\b',
+        r'\btelnet\b',
+        r'\bssh\b',
+        r'\bscp\b',
+        r'\brsync\b',
         
-        # Process control
-        r'kill',
-        r'ps',
-        r'pkill',
-        r'killall',
+        # Process control - with word boundaries
+        r'\bkill\b',
+        r'\bps\b',
+        r'\bpkill\b',
+        r'\bkillall\b',
         
-        # Package management
-        r'apt',
-        r'yum',
-        r'dnf',
-        r'pacman',
-        r'brew',
+        # Package management - with word boundaries
+        r'\bapt\b',
+        r'\byum\b',
+        r'\bdnf\b',
+        r'\bpacman\b',
+        r'\bbrew\b',
         
         # Shell features
         r'\*\*',
@@ -143,11 +143,11 @@ class CommandVerifier:
                 r'<[^>]+>',  # Anything in angle brackets like <pod-name>
                 r'\{[^}]+\}',  # Anything in curly braces like {pod-name}
                 r'\[[^\]]+\]',  # Anything in square brackets like [pod-name]
-                r'pod-name',  # Literal "pod-name"
-                r'namespace-name',  # Literal "namespace-name"
-                r'service-name',  # Literal "service-name"
-                r'deployment-name',  # Literal "deployment-name"
-                r'resource-name',  # Literal "resource-name"
+                r'\bpod-name\b',  # Literal "pod-name"
+                r'\bnamespace-name\b',  # Literal "namespace-name"
+                r'\bservice-name\b',  # Literal "service-name"
+                r'\bdeployment-name\b',  # Literal "deployment-name"
+                r'\bresource-name\b',  # Literal "resource-name"
             ]
             
             for pattern in placeholder_patterns:

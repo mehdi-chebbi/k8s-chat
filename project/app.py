@@ -1897,26 +1897,31 @@ def test_kubeconfig(kubeconfig_id):
         kubeconfig = app.db.get_kubeconfig(kubeconfig_id)
         if not kubeconfig:
             return jsonify({'error': 'Kubeconfig not found'}), 404
-        
+
         # Test the kubeconfig using K8sClient
         try:
             from k8s_client import K8sClient
             k8s_client = K8sClient(kubeconfig_path=kubeconfig['path'])
-            
+
             # Try a simple kubectl command to test connectivity
             result = k8s_client._run_kubectl_command(['cluster-info'], timeout=10)
-            
+
             if result['success']:
                 # Update test result in database
-                app.db.update_kubeconfig_test_result(
+                update_success = app.db.update_kubeconfig_test_result(
                     kubeconfig_id,
                     'passed',
                     'Connection successful - cluster info retrieved'
                 )
-                
+
+                if not update_success:
+                    logger.error(f"Failed to update test result for kubeconfig {kubeconfig_id} in database")
+
                 return jsonify({
                     'success': True,
                     'message': 'Kubeconfig test successful',
+                    'test_status': 'passed',
+                    'test_timestamp': datetime.now().isoformat(),
                     'details': {
                         'cluster_accessible': True,
                         'kubectl_available': True,
@@ -1925,15 +1930,20 @@ def test_kubeconfig(kubeconfig_id):
                 })
             else:
                 # Update test result in database
-                app.db.update_kubeconfig_test_result(
-                    kubeconfig_id, 
-                    'failed', 
+                update_success = app.db.update_kubeconfig_test_result(
+                    kubeconfig_id,
+                    'failed',
                     result.get('error', 'Unknown error')
                 )
-                
+
+                if not update_success:
+                    logger.error(f"Failed to update test result for kubeconfig {kubeconfig_id} in database")
+
                 return jsonify({
                     'success': False,
                     'message': 'Kubeconfig test failed',
+                    'test_status': 'failed',
+                    'test_timestamp': datetime.now().isoformat(),
                     'error': result.get('error', 'Unknown error'),
                     'details': {
                         'cluster_accessible': result.get('cluster_accessible', False),
@@ -1941,21 +1951,26 @@ def test_kubeconfig(kubeconfig_id):
                         'stderr': result.get('stderr', '')[:500] + '...' if len(result.get('stderr', '')) > 500 else result.get('stderr', '')
                     }
                 })
-                
+
         except Exception as test_error:
             # Update test result in database
-            app.db.update_kubeconfig_test_result(
-                kubeconfig_id, 
-                'error', 
+            update_success = app.db.update_kubeconfig_test_result(
+                kubeconfig_id,
+                'error',
                 str(test_error)
             )
-            
+
+            if not update_success:
+                logger.error(f"Failed to update test result for kubeconfig {kubeconfig_id} in database")
+
             return jsonify({
                 'success': False,
                 'message': 'Kubeconfig test failed with exception',
+                'test_status': 'error',
+                'test_timestamp': datetime.now().isoformat(),
                 'error': str(test_error)
             })
-        
+
     except Exception as e:
         logger.error(f"Error testing kubeconfig {kubeconfig_id}: {str(e)}")
         return jsonify({'error': 'Failed to test kubeconfig'}), 500
@@ -2305,32 +2320,45 @@ def test_llm_config(config_id):
                 'endpoint_url': config.get('endpoint_url'),
                 'model': config.get('model') or 'default'
             }
-            
+
             llm_provider = LLMClientFactory.create_provider(provider_config)
-            
+
             # Test connection
             test_result = llm_provider.test_connection()
-            
+
             # Update test results in database
-            app.db.test_llm_config(config_id, test_result)
-            
-            return jsonify({
+            update_success = app.db.test_llm_config(config_id, test_result)
+
+            if not update_success:
+                logger.error(f"Failed to update test result for LLM config {config_id} in database")
+
+            # Ensure response includes test_status and timestamp
+            response_data = {
                 'success': test_result['success'],
                 'message': test_result['message'],
+                'test_status': 'passed' if test_result.get('success') else 'failed',
+                'test_timestamp': datetime.now().isoformat(),
                 'test_result': test_result
-            })
-            
+            }
+
+            return jsonify(response_data)
+
         except Exception as e:
             # Update test results with failure
             error_result = {
                 'success': False,
                 'message': f'Provider initialization failed: {str(e)}'
             }
-            app.db.test_llm_config(config_id, error_result)
-            
+            update_success = app.db.test_llm_config(config_id, error_result)
+
+            if not update_success:
+                logger.error(f"Failed to update test result for LLM config {config_id} in database")
+
             return jsonify({
                 'success': False,
-                'message': f'Test failed: {str(e)}'
+                'message': f'Test failed: {str(e)}',
+                'test_status': 'failed',
+                'test_timestamp': datetime.now().isoformat()
             }), 500
         
     except Exception as e:

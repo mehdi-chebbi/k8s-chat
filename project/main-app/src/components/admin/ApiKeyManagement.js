@@ -202,13 +202,23 @@ const ApiKeyManagement = ({ user, onError }) => {
     setLoading(prev => ({ ...prev, testConnection: true }));
     try {
       const result = await apiService.testLLMConfig(configId);
-      if (result.success) {
-        if (result.data.message) {
-          const successMsg = result.data.message + (result.data.details?.output ? '\n\n' + result.data.details.output : '');
-          alert(successMsg);
-        }
-        // Reload API keys to get updated test_status
-        await loadApiKeys();
+      const testStatus = result.data?.test_status || (result.success ? 'passed' : 'failed');
+      const message = result.data?.message || result.message || 'Test completed';
+
+      if (result.success || result.data?.test_status) {
+        alert(message + (result.data?.details?.output ? '\n\n' + result.data.details.output : ''));
+
+        // Update local state immediately with the test status from response
+        setApiKeys(prev => prev.map(key =>
+          key.id === configId
+            ? {
+                ...key,
+                test_status: testStatus,
+                last_tested: result.data?.test_timestamp || new Date().toISOString(),
+                test_message: result.data?.message || message
+              }
+            : key
+        ));
       } else {
         onError(`Connection test failed: ${result.error}`);
       }

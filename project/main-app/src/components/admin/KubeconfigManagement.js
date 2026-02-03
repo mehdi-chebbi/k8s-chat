@@ -185,12 +185,25 @@ const KubeconfigManagement = ({ user, onError, onHealthUpdate }) => {
     setLoading(prev => ({ ...prev, kubeconfigAction: true }));
     try {
       const result = await apiService.testKubeconfig(kubeconfigId);
-      if (result.success) {
-        alert(result.data.message + (result.data.details?.output ? '\n\n' + result.data.details.output : ''));
-        // Reload kubeconfigs to get updated test_status
-        await loadKubeconfigs();
+      if (result.success || result.data?.test_status) {
+        const testStatus = result.data?.test_status || (result.success ? 'passed' : 'failed');
+        const message = result.data?.message || result.message || 'Test completed';
+
+        alert(message + (result.data?.details?.output ? '\n\n' + result.data.details.output : ''));
+
+        // Update local state immediately with the test status from response
+        setKubeconfigs(prev => prev.map(config =>
+          config.id === kubeconfigId
+            ? {
+                ...config,
+                test_status: testStatus,
+                last_tested: result.data?.test_timestamp || new Date().toISOString(),
+                test_message: result.data?.message || message
+              }
+            : config
+        ));
       } else {
-        onError(result.error);
+        onError(result.error || 'Test failed');
       }
     } catch (error) {
       onError('Error testing kubeconfig');
