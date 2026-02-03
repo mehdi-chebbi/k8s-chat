@@ -747,13 +747,7 @@ const ApiKeyManagement = ({ user, onError }) => {
                         </button>
                       )}
 
-                      <button
-                        onClick={() => handleEditApiKey(apiKey)}
-                        className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-medium rounded-lg bg-k8s-purple/20 text-k8s-purple hover:bg-k8s-purple/30 transition-colors"
-                      >
-                        <Edit2 className="w-3.5 h-3.5" />
-                        Edit
-                      </button>
+
 
                       <button
                         onClick={() => handleDeleteApiKey(apiKey.id)}

@@ -631,14 +631,7 @@ const KubeconfigManagement = ({ user, onError, onHealthUpdate }) => {
                   >
                     <PlayCircle className="w-4 h-4" />
                   </button>
-                  <button
-                    onClick={() => handleEditKubeconfig(config)}
-                    disabled={loading.kubeconfigAction}
-                    className="p-2 rounded-lg bg-k8s-blue/10 hover:bg-k8s-blue/20 text-k8s-gray hover:text-white transition-all duration-200 hover:scale-110 border border-k8s-blue/20 hover:border-k8s-blue/40"
-                    title="Edit configuration"
-                  >
-                    <Edit2 className="w-4 h-4" />
-                  </button>
+
                   {!config.is_active && (
                     <button
                       onClick={() => handleActivateKubeconfig(config.id)}
